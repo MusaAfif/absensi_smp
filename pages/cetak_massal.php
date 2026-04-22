@@ -202,10 +202,22 @@ $extra_head = <<<'CSS'
         color: var(--brand-navy);
         border-bottom: 1px dashed #cfd7ea;
         padding-bottom: 3px;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
+        max-height: 1.02cm;
+        display: block;
+        word-break: break-word;
+        overflow-wrap: anywhere;
         overflow: hidden;
+    }
+
+    .student-name.name-sm {
+        font-size: 7pt;
+        line-height: 1.1;
+    }
+
+    .student-name.name-xs {
+        font-size: 6.4pt;
+        line-height: 1.05;
+        letter-spacing: 0;
     }
 
     .data-grid {
@@ -368,6 +380,16 @@ include '../includes/header.php';
         if ($fotoSiswa === '' || !file_exists('../assets/img/siswa/' . $fotoSiswa)) {
             $fotoSiswa = 'default.png';
         }
+        $studentName = strtoupper(trim((string)($row['nama_lengkap'] ?? '')));
+        $nameLength = function_exists('mb_strlen')
+            ? mb_strlen(preg_replace('/\s+/u', '', $studentName))
+            : strlen(preg_replace('/\s+/', '', $studentName));
+        $nameClass = '';
+        if ($nameLength >= 30) {
+            $nameClass = ' name-xs';
+        } elseif ($nameLength >= 24) {
+            $nameClass = ' name-sm';
+        }
     ?>
     <div class="kartu-container">
         <div class="header">
@@ -392,7 +414,7 @@ include '../includes/header.php';
             </div>
 
             <div class="info-wrap">
-                <h2 class="student-name"><?= SecurityHelper::escapeHTML(strtoupper($row['nama_lengkap'])); ?></h2>
+                <h2 class="student-name<?= $nameClass; ?>"><?= SecurityHelper::escapeHTML($studentName); ?></h2>
                 <div class="data-grid">
                     <div class="label">NIS</div><div class="value">: <?= SecurityHelper::escapeHTML((string)$row['nis']); ?></div>
                     <div class="label">NISN</div><div class="value">: <?= SecurityHelper::escapeHTML((string)($row['nisn'] ?: '-')); ?></div>

@@ -53,6 +53,17 @@ $fotoSiswa = trim((string)($d['foto'] ?? ''));
 if ($fotoSiswa === '' || !file_exists('../assets/img/siswa/' . $fotoSiswa)) {
     $fotoSiswa = 'default.png';
 }
+
+$studentName = strtoupper(trim((string)($d['nama_lengkap'] ?? '')));
+$nameLength = function_exists('mb_strlen')
+    ? mb_strlen(preg_replace('/\s+/u', '', $studentName))
+    : strlen(preg_replace('/\s+/', '', $studentName));
+$nameClass = '';
+if ($nameLength >= 30) {
+    $nameClass = ' name-xs';
+} elseif ($nameLength >= 24) {
+    $nameClass = ' name-sm';
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -254,10 +265,22 @@ if ($fotoSiswa === '' || !file_exists('../assets/img/siswa/' . $fotoSiswa)) {
             color: var(--brand-navy);
             border-bottom: 1px dashed #cfd7ea;
             padding-bottom: 3px;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
+            max-height: 1.02cm;
+            display: block;
+            word-break: break-word;
+            overflow-wrap: anywhere;
             overflow: hidden;
+        }
+
+        .student-name.name-sm {
+            font-size: 7pt;
+            line-height: 1.1;
+        }
+
+        .student-name.name-xs {
+            font-size: 6.4pt;
+            line-height: 1.05;
+            letter-spacing: 0;
         }
 
         .data-grid {
@@ -415,7 +438,7 @@ if ($fotoSiswa === '' || !file_exists('../assets/img/siswa/' . $fotoSiswa)) {
         </div>
         
         <div class="info-wrap">
-            <h2 class="student-name"><?= htmlspecialchars($d['nama_lengkap'], ENT_QUOTES, 'UTF-8'); ?></h2>
+            <h2 class="student-name<?= $nameClass; ?>"><?= htmlspecialchars($studentName, ENT_QUOTES, 'UTF-8'); ?></h2>
             <div class="data-grid">
                 <div class="label">NIS</div><div class="value">: <?= htmlspecialchars((string)$d['nis'], ENT_QUOTES, 'UTF-8'); ?></div>
                 <div class="label">NISN</div><div class="value">: <?= htmlspecialchars((string)($d['nisn'] ?: '-'), ENT_QUOTES, 'UTF-8'); ?></div>
