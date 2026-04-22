@@ -412,7 +412,18 @@ function cek_login() {
             }
         }
 
-        header("Location: " . BASE_URL . "login.php?pesan=wajib_login");
+        $loginUrl = BASE_URL . "login.php?pesan=wajib_login";
+        if (!headers_sent()) {
+            header("Location: " . $loginUrl);
+            exit;
+        }
+
+        // Fallback jika header redirect gagal (mis. output sudah terkirim)
+        echo '<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"><meta http-equiv="refresh" content="0;url=' . htmlspecialchars($loginUrl, ENT_QUOTES, 'UTF-8') . '"><title>Redirect Login</title></head><body style="font-family:Arial,sans-serif;padding:20px;">';
+        echo '<p>Sesi login tidak ditemukan. Mengarahkan ke halaman login...</p>';
+        echo '<p><a href="' . htmlspecialchars($loginUrl, ENT_QUOTES, 'UTF-8') . '">Klik di sini jika tidak dialihkan.</a></p>';
+        echo '<script>window.location.replace(' . json_encode($loginUrl) . ');</script>';
+        echo '</body></html>';
         exit;
     }
 }
