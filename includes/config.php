@@ -164,6 +164,9 @@ function check_login_rate_limit(mysqli $conn, string $ip, int $maxAttempts = 5, 
         ) ENGINE=InnoDB"
     );
 
+    // Ensure column types are correct (in case table exists with wrong types)
+    $conn->query("ALTER TABLE rate_limit MODIFY window_start INT NOT NULL");
+    
     $now = time();
     $windowStart = $now - $windowSeconds;
     $key = 'login_' . $ip;
