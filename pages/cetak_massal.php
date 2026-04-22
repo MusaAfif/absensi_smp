@@ -186,9 +186,16 @@ $extra_head = <<<'CSS'
         font-weight: 600;
     }
 
+    .info-wrap {
+        height: 100%;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
     .student-name {
         margin: 0 0 4px;
-        font-size: 8pt;
+        font-size: 7.6pt;
         line-height: 1.15;
         font-weight: 700;
         text-transform: uppercase;
@@ -206,7 +213,7 @@ $extra_head = <<<'CSS'
         grid-template-columns: 40px 1fr;
         row-gap: 1px;
         column-gap: 6px;
-        font-size: 5.8pt;
+        font-size: 5.6pt;
     }
 
     .label {
@@ -223,7 +230,7 @@ $extra_head = <<<'CSS'
     }
 
     .id-box {
-        margin-top: 3px;
+        margin-top: auto;
         border-radius: 6px;
         background: #eef3ff;
         border: 1px solid #d7e1f6;
@@ -382,10 +389,9 @@ include '../includes/header.php';
         <div class="main-body">
             <div class="photo-wrap">
                 <img src="../assets/img/siswa/<?= htmlspecialchars($fotoSiswa, ENT_QUOTES, 'UTF-8'); ?>" alt="Foto">
-                <span class="chip">Kartu Permanen</span>
             </div>
 
-            <div>
+            <div class="info-wrap">
                 <h2 class="student-name"><?= SecurityHelper::escapeHTML(strtoupper($row['nama_lengkap'])); ?></h2>
                 <div class="data-grid">
                     <div class="label">NIS</div><div class="value">: <?= SecurityHelper::escapeHTML((string)$row['nis']); ?></div>
