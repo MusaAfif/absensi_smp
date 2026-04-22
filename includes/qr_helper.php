@@ -8,13 +8,18 @@ function generateQrDataUri(string $data, string $errorLevel = QR_ECLEVEL_H, int 
         return '';
     }
 
-    // Suppress error output agar notices/warnings dari phpqrcode (library lama)
-    // tidak tercampur ke dalam binary PNG dan merusaknya
+    // Gunakan file sementara agar phpqrcode tidak mengubah Content-Type response jadi image/png.
+    $tmpFile = tempnam(sys_get_temp_dir(), 'qr_');
+    if ($tmpFile === false) {
+        return '';
+    }
+
     $prevReporting = error_reporting(0);
-    ob_start();
-    QRcode::png($payload, false, $errorLevel, $matrixSize, $margin);
-    $pngBinary = ob_get_clean();
+    QRcode::png($payload, $tmpFile, $errorLevel, $matrixSize, $margin);
     error_reporting($prevReporting);
+
+    $pngBinary = @file_get_contents($tmpFile);
+    @unlink($tmpFile);
 
     if ($pngBinary === false || $pngBinary === '') {
         return '';

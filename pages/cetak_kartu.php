@@ -3,6 +3,10 @@ require_once __DIR__ . '/../includes/config.php';
 cek_login();
 require_once __DIR__ . '/../includes/qr_helper.php';
 
+if (!headers_sent()) {
+    header('Content-Type: text/html; charset=UTF-8');
+}
+
 $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $stmt = mysqli_prepare(
     $conn,
@@ -54,7 +58,7 @@ if ($fotoSiswa === '' || !file_exists('../assets/img/siswa/' . $fotoSiswa)) {
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Cetak Kartu - <?= $d['nama_lengkap']; ?></title>
+    <title>Cetak Kartu - <?= htmlspecialchars((string)$d['nama_lengkap'], ENT_QUOTES, 'UTF-8'); ?></title>
     <link href="../assets/css/site.css" rel="stylesheet">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
