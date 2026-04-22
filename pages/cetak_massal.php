@@ -77,11 +77,14 @@ $extra_head = <<<'CSS'
         height: 5.4cm;
         border-radius: 12px;
         position: relative;
-        overflow: hidden; position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
         border: 1px solid #d5def0;
         box-shadow: 0 14px 30px rgba(23, 45, 92, 0.20);
         background: linear-gradient(175deg, #ffffff 0%, var(--paper) 100%);
         page-break-inside: avoid;
+        box-sizing: border-box;
     }
 
     .kartu-container::before {
@@ -93,8 +96,8 @@ $extra_head = <<<'CSS'
     }
 
     .header {
-        height: 31%;
-        padding: 7px 10px;
+        flex: 0 0 1.52cm;
+        padding: 6px 9px;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -103,6 +106,7 @@ $extra_head = <<<'CSS'
         color: #fff;
         position: relative;
         z-index: 2;
+        box-sizing: border-box;
     }
 
     .logo-box {
@@ -135,7 +139,7 @@ $extra_head = <<<'CSS'
 
     .header-text .school {
         margin: 3px 0 0;
-        font-size: 6pt;
+        font-size: 5.6pt;
         font-weight: 500;
         opacity: 0.95;
         white-space: nowrap;
@@ -144,14 +148,17 @@ $extra_head = <<<'CSS'
     }
 
     .main-body {
-        height: 56%;
-        padding: 7px 8px;
+        flex: 1 1 auto;
+        min-height: 0;
+        padding: 6px 8px 5px;
         display: grid;
         grid-template-columns: 26% 45% 29%;
         gap: 8px;
-        align-items: center;
+        align-items: start;
         position: relative;
         z-index: 2;
+        overflow: hidden;
+        box-sizing: border-box;
     }
 
     .photo-wrap {
@@ -159,8 +166,8 @@ $extra_head = <<<'CSS'
     }
 
     .photo-wrap img {
-        width: 1.95cm;
-        height: 2.45cm;
+        width: 1.85cm;
+        height: 2.18cm;
         object-fit: cover;
         border: 1px solid #c6d3ee;
         border-radius: 8px;
@@ -169,33 +176,37 @@ $extra_head = <<<'CSS'
     }
 
     .photo-wrap .chip {
-        margin-top: 4px;
+        margin-top: 3px;
         display: inline-block;
         border-radius: 999px;
         background: #e8eefc;
         color: var(--brand-navy);
-        font-size: 5.3pt;
-        padding: 2px 7px;
+        font-size: 5pt;
+        padding: 2px 6px;
         font-weight: 600;
     }
 
     .student-name {
-        margin: 0 0 5px;
-        font-size: 8.3pt;
-        line-height: 1.2;
+        margin: 0 0 4px;
+        font-size: 8pt;
+        line-height: 1.15;
         font-weight: 700;
         text-transform: uppercase;
         color: var(--brand-navy);
         border-bottom: 1px dashed #cfd7ea;
-        padding-bottom: 4px;
+        padding-bottom: 3px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
     }
 
     .data-grid {
         display: grid;
         grid-template-columns: 40px 1fr;
-        row-gap: 2px;
+        row-gap: 1px;
         column-gap: 6px;
-        font-size: 6.2pt;
+        font-size: 5.8pt;
     }
 
     .label {
@@ -212,16 +223,16 @@ $extra_head = <<<'CSS'
     }
 
     .id-box {
-        margin-top: 5px;
+        margin-top: 3px;
         border-radius: 6px;
         background: #eef3ff;
         border: 1px solid #d7e1f6;
-        padding: 4px 5px;
+        padding: 3px 5px;
     }
 
     .id-box .id-title {
         margin: 0;
-        font-size: 4.8pt;
+        font-size: 4.4pt;
         text-transform: uppercase;
         letter-spacing: 0.35px;
         color: var(--ink-soft);
@@ -229,7 +240,7 @@ $extra_head = <<<'CSS'
 
     .id-box .id-value {
         margin: 1px 0 0;
-        font-size: 5.7pt;
+        font-size: 5.2pt;
         color: var(--brand-navy);
         font-weight: 700;
         white-space: nowrap;
@@ -238,25 +249,29 @@ $extra_head = <<<'CSS'
     }
 
     .qr-wrap {
+        min-height: 2.16cm;
         text-align: center;
         border-radius: 10px;
         background: #fff;
         border: 1px solid #d8e0f2;
-        padding: 6px 4px;
+        padding: 4px 4px 3px;
         width: 100%;
         box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
 
     .qr-wrap img {
-        width: 1.65cm;
-        height: 1.65cm;
+        width: 1.5cm;
+        height: 1.5cm;
         margin: 0 auto;
         display: block;
     }
 
     .qr-wrap .qr-text {
-        margin-top: 3px;
-        font-size: 5.1pt;
+        margin-top: 2px;
+        font-size: 4.7pt;
         font-weight: 700;
         color: var(--brand-navy);
         text-transform: uppercase;
@@ -264,22 +279,27 @@ $extra_head = <<<'CSS'
     }
 
     .footer {
-        height: 13%;
+        flex: 0 0 0.58cm;
         border-top: 1px solid #d7e0f3;
         background: rgba(255, 255, 255, 0.82);
         display: flex;
         align-items: center;
-        justify-content: center;
+        justify-content: space-between;
         padding: 0 8px;
         position: relative;
         z-index: 2;
+        box-sizing: border-box;
     }
 
-    .footer p {
-        font-size: 5pt;
+    .footer .left {
+        font-size: 4.6pt;
         color: #566480;
-        margin: 0;
-        font-style: italic;
+        font-weight: 500;
+    }
+
+    .footer .right {
+        font-size: 4.6pt;
+        color: #73819a;
     }
 
     @media print {
@@ -384,7 +404,10 @@ include '../includes/header.php';
                 <div class="qr-text">Scan untuk absensi</div>
             </div>
         </div>
-        <div class="footer"><p>Tunjukkan kartu ini saat melakukan absensi</p></div>
+        <div class="footer">
+            <div class="left">Berlaku sampai siswa lulus / kartu diganti resmi</div>
+            <div class="right">SID Secure Card</div>
+        </div>
     </div>
     <?php if($i % 10 == 0) echo '</div><div class="page-break"></div><div class="grid-cetak mt-4">'; ?>
     <?php endforeach; ?>
