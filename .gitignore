@@ -1,0 +1,15 @@
+# Runtime logs
+logs/*.log
+
+# User-generated files
+uploads/*
+!uploads/.gitkeep
+
+# Local environment artifacts
+.env
+.env.*
+*.local
+
+# OS/editor files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,57 @@
+/* Backup Page Styles */
+.backup-page .card {
+    border: none;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+}
+
+.backup-page .backup-icon {
+    font-size: 4rem;
+    color: #0d6efd;
+}
+
+.backup-page .progress {
+    height: 8px;
+    border-radius: 4px;
+}
+
+.backup-page .download-btn {
+    background: #28a745;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 24px;
+    color: white;
+    text-decoration: none;
+    display: inline-block;
+    transition: background-color 0.3s;
+}
+
+.backup-page .download-btn:hover {
+    background: #218838;
+    color: white;
+    text-decoration: none;
+}
+
+.backup-page .alert {
+    border-radius: 8px;
+    border: none;
+}
+
+.backup-page .btn-backup {
+    background: #0d6efd;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 24px;
+    color: white;
+    font-weight: 600;
+    transition: background-color 0.3s;
+}
+
+.backup-page .btn-backup:hover {
+    background: #0b5ed7;
+}
+
+.backup-page .btn-backup:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+}

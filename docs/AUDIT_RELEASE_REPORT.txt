@@ -1,0 +1,140 @@
+AUDIT RELEASE REPORT
+====================
+
+Tanggal audit:
+22 April 2026
+
+Pendekatan:
+Audit -> Cleanup -> Repair -> Optimize -> Validate -> Release
+
+RINGKASAN HASIL
+---------------
+Aplikasi sudah diperbaiki pada area inti yang paling berisiko untuk produksi:
+- debug leakage pada router dan endpoint absensi ditutup
+- koneksi session cookie diperbaiki agar domain tidak membawa port
+- logout dibersihkan dari session_start ganda
+- modul pengaturan dibersihkan dari mode debug dan validasi jadwal dipulihkan
+- endpoint dashboard tertentu kini dilindungi login
+- query laporan dan pencarian siswa dipindah ke prepared statement
+- layer duplikat yang tidak aktif pada folder app/ dibersihkan
+- log impor lama dibersihkan
+
+PERBAIKAN YANG SUDAH DITERAPKAN
+-------------------------------
+1. Security hardening
+   - index.php tidak lagi mengirim header X-Debug
+   - api/attendance.php
+   - api/attendance/masuk.php
+   - api/attendance/pulang.php
+   sekarang tidak lagi membocorkan file path dan nomor baris ke client
+
+2. Session and config hardening
+   - includes/config.php kini membersihkan domain cookie dari port
+   - includes/config.php tidak lagi menampilkan raw error koneksi database ke pengguna
+   - error koneksi database kini dicatat ke logs/app.log
+
+3. Pengaturan dan jadwal
+   - pengaturan/index.php tidak lagi punya mode ?debug
+   - pengaturan/process_pengaturan.php tidak lagi menyimpan detail error debug ke session user
+   - pengaturan/service/jadwal_service.php kembali memvalidasi format jam dan urutan waktu
+
+4. Endpoint protection and SQL cleanup
+   - api/get_logs.php sekarang wajib login dan output di-escape
+   - api/get_stats.php sekarang wajib login dan memakai DashboardService
+   - ajax/get_recent_log.php sekarang wajib login dan mengikuti skema tabel aktif
+   - pages/laporan.php sekarang memvalidasi tanggal dan memakai prepared statement
+   - pages/siswa.php pencarian sekarang memakai prepared statement
+
+5. Cleanup fisik
+   - folder app/ duplicate layer dihapus file isinya karena tidak direferensikan runtime aktif
+   - file log import lama di folder logs/ dihapus
+
+FILE YANG DIHAPUS
+-----------------
+1. app/bootstrap.php
+2. app/services/admin_service.php
+3. app/services/attendance_logic.php
+4. app/services/attendance_service.php
+5. app/services/dashboard_service.php
+6. app/services/import_service.php
+7. app/services/jadwal_service.php
+8. app/services/pengaturan_service.php
+9. app/services/recovery_service.php
+10. app/services/user_service.php
+11. logs/import_20260416_200349.log
+12. logs/import_20260416_200812.log
+13. logs/import_20260416_200837.log
+14. logs/import_20260416_201249.log
+15. logs/import_20260416_201416.log
+16. logs/import_20260419_113005.log
+
+TEMUAN YANG MASIH DIREKOMENDASIKAN UNTUK TAHAP BERIKUTNYA
+--------------------------------------------------------
+1. Harden restore database
+   - api/restore.php masih perlu validasi file SQL lebih ketat
+   - perlu pembatasan ekstensi, ukuran file, dan audit action
+
+2. Konsolidasi route legacy
+   - pages/user.php dan pages/pengaturan.php masih berfungsi sebagai redirect stub
+   - api/proses_absen.php dan ajax/simpan_absen.php masih perlu konsolidasi bila ingin struktur lebih rapi
+
+3. Security header global
+   - tambahkan X-Frame-Options, X-Content-Type-Options, dan Referrer-Policy di bootstrap/config global
+
+4. Audit upload file
+   - validasi MIME type, ukuran, rename file aman, dan whitelist extension perlu dicek menyeluruh pada semua endpoint upload
+
+5. Role based access control
+   - validasi role masih perlu dibuat lebih eksplisit pada action admin sensitif
+
+STATUS VALIDASI
+---------------
+Validasi yang berhasil dijalankan:
+- PHP lint untuk file-file yang diubah
+- pemeriksaan editor errors untuk file yang diubah
+- pencarian referensi setelah penghapusan layer app/
+
+Catatan:
+- Pengujian end-to-end browser tidak dijalankan otomatis dalam audit ini
+- Tidak ada file dump database .sql bawaan di repo untuk simulasi data penuh
+- Tidak ada repo git aktif, jadi tidak ada diff berbasis git
+
+STATUS PRODUCTION READY
+-----------------------
+Status saat ini:
+Conditional production ready
+
+Artinya:
+Aplikasi jauh lebih aman dan stabil dibanding kondisi awal audit, namun sebelum go live sekolah tetap disarankan menyelesaikan tahap berikut:
+- uji end-to-end login, scan masuk, scan pulang, laporan, import, backup, restore
+- audit restore upload SQL
+- aktifkan HTTPS dan backup otomatis
+- verifikasi akun admin production dan reset password default
+
+SARAN PENGEMBANGAN KE DEPAN
+---------------------------
+1. Tambahkan audit log admin
+   Catat siapa mengubah pengaturan, menghapus siswa, restore database, atau reset recovery code.
+
+2. Tambahkan environment config
+   Pisahkan konfigurasi lokal dan produksi agar BASE_URL, DB, dan timezone tidak hardcoded.
+
+3. Konsolidasi arsitektur service
+   Tetapkan satu lapisan service saja agar maintenance tidak bingung lagi.
+
+4. Tambahkan test checklist rutin
+   Minimal checklist bulanan untuk login, scan, laporan, backup, restore, dan upload logo.
+
+5. Tambahkan monitoring
+   Simpan error log terstruktur dan notifikasi jika terjadi error berulang pada scan atau database.
+
+6. Tambahkan rate limit endpoint sensitif
+   Terutama login, restore, dan device attendance API.
+
+7. Rapikan vendor asset
+   Di tahap berikut, source vendor yang tidak dipakai bisa dipangkas setelah diverifikasi path runtime-nya.
+
+KESIMPULAN
+----------
+Audit ini sudah memperbaiki sejumlah akar masalah inti yang memengaruhi keamanan, stabilitas, dan maintenance.
+Aplikasi sudah mendekati layak produksi, tetapi belum pantas diklaim 100 persen bebas risiko tanpa uji operasional end-to-end berbasis database sekolah yang nyata.

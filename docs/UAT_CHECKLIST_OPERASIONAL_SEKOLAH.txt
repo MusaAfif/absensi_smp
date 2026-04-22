@@ -1,0 +1,195 @@
+UAT CHECKLIST OPERASIONAL SEKOLAH
+=================================
+
+Tujuan:
+Memastikan aplikasi siap digunakan harian di sekolah untuk alur login, scan masuk/pulang, laporan, backup, dan restore.
+
+Lingkungan Uji:
+- URL aplikasi:
+- Tanggal uji:
+- Penguji:
+- Browser:
+- Server (offline/online):
+- Database:
+
+Data Uji Minimum:
+- 1 akun admin aktif
+- 1 akun admin cadangan
+- Minimal 10 data siswa dari 2 kelas berbeda
+- Jadwal absensi sudah diatur untuk hari uji
+- 1 file backup SQL valid untuk uji restore
+
+Skor Hasil:
+- PASS: Berhasil sesuai ekspektasi
+- FAIL: Gagal / hasil tidak sesuai
+- BLOCKED: Tidak bisa diuji karena prasyarat belum siap
+
+A. LOGIN DAN SESSION
+--------------------
+1. Login admin dengan username/password valid
+   - Langkah: buka login, masukkan kredensial valid, klik Login
+   - Ekspektasi: masuk ke dashboard tanpa error
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+2. Login admin dengan password salah
+   - Ekspektasi: muncul pesan gagal login, tidak masuk dashboard
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+3. Logout
+   - Ekspektasi: session berakhir, kembali ke halaman login
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+4. Akses halaman internal tanpa login
+   - Uji: buka pages/dashboard.php langsung setelah logout
+   - Ekspektasi: redirect ke login
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+B. MASTER DATA SISWA
+--------------------
+1. Tambah siswa baru tanpa foto
+   - Ekspektasi: data tersimpan, tampil di daftar siswa
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+2. Tambah siswa baru dengan foto valid JPG/PNG
+   - Ekspektasi: upload berhasil, foto tampil di daftar
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+3. Edit data siswa
+   - Ekspektasi: perubahan tersimpan dan tampil benar
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+4. Pencarian siswa
+   - Ekspektasi: hasil filter sesuai keyword NIS/Nama/Kelas
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+C. PENGATURAN JADWAL ABSENSI
+----------------------------
+1. Ubah jam masuk/pulang untuk Senin-Jumat
+   - Ekspektasi: tersimpan tanpa error format waktu
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+2. Ubah toleransi keterlambatan
+   - Ekspektasi: nilai tersimpan dan dipakai saat scan
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+3. Upload logo sekolah
+   - Ekspektasi: logo baru tampil di halaman terkait
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+4. Upload logo pemda
+   - Ekspektasi: logo baru tampil di halaman terkait
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+D. SCAN ABSEN MASUK
+-------------------
+1. Scan siswa pada jam masuk normal
+   - Ekspektasi: status tercatat Hadir/Tepat Waktu
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+2. Scan siswa pada jam terlambat (melewati batas tepat waktu)
+   - Ekspektasi: status tercatat Terlambat
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+3. Double scan pada fase sama
+   - Ekspektasi: sistem menolak scan duplikat dengan pesan yang jelas
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+E. SCAN ABSEN PULANG
+--------------------
+1. Scan pulang dalam rentang jam pulang
+   - Ekspektasi: status pulang tercatat berhasil
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+2. Scan pulang sebelum jam pulang
+   - Ekspektasi: ditolak dengan pesan sesuai aturan
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+F. LAPORAN
+----------
+1. Laporan harian
+   - Ekspektasi: data sesuai tanggal terpilih
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+2. Laporan gabungan/rekap
+   - Ekspektasi: data per kelas dan status tampil benar
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+3. Export Excel laporan
+   - Ekspektasi: file unduh berhasil dan data sesuai
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+G. BACKUP DAN RESTORE
+---------------------
+1. Jalankan backup database
+   - Ekspektasi: file backup SQL berhasil dibuat/diunduh
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+2. Restore dengan file SQL valid
+   - Ekspektasi: restore berhasil, data kembali sesuai isi backup
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+3. Restore dengan file non-SQL
+   - Ekspektasi: sistem menolak upload (format tidak valid)
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+4. Restore dengan file SQL rusak
+   - Ekspektasi: sistem menolak/menampilkan error aman tanpa membocorkan detail internal
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+H. UJI KEAMANAN DASAR
+---------------------
+1. Coba akses API sensitif tanpa login (contoh: get_stats/get_logs)
+   - Ekspektasi: ditolak/redirect login
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+2. Uji form POST tanpa CSRF token
+   - Ekspektasi: request ditolak
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+3. Uji input karakter khusus pada pencarian/filter
+   - Ekspektasi: tidak error SQL, sistem tetap stabil
+   - Hasil: PASS / FAIL / BLOCKED
+   - Catatan:
+
+I. KRITERIA GO-LIVE
+-------------------
+Checklist wajib:
+[ ] Semua skenario A sampai H minimal 95 persen PASS
+[ ] Tidak ada FAIL pada login, scan, backup, restore
+[ ] Tidak ada error PHP fatal di logs saat uji
+[ ] Akun admin default sudah diganti password kuat
+[ ] Backup harian otomatis sudah dijadwalkan
+[ ] SSL aktif (untuk deployment online)
+
+Ringkasan Hasil UAT:
+- Total PASS:
+- Total FAIL:
+- Total BLOCKED:
+- Keputusan: LAYAK GO-LIVE / TUNDA GO-LIVE
+- Disetujui oleh:

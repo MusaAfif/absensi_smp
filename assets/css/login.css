@@ -1,0 +1,355 @@
+/* Login Page Styles */
+.login-page {
+    min-height: 100vh;
+    display: flex;
+    font-family: 'Inter', sans-serif;
+}
+
+.visual-section {
+    flex: 1;
+    background: url('../img/halaman_login/Halaman_login.png') center/cover no-repeat;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    -webkit-mask-image: radial-gradient(ellipse 90% 100% at center, transparent 0%, black 40%);
+    mask-image: radial-gradient(ellipse 90% 100% at center, transparent 0%, black 40%);
+}
+
+.visual-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: transparent;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.visual-content {
+    text-align: center;
+    color: white;
+    z-index: 3;
+    position: relative;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding-top: 60px;
+    width: 100%;
+}
+
+.welcome-title {
+    font-size: 2.5rem;
+    font-weight: 900;
+    margin: 0 0 10px 0;
+    line-height: 1.2;
+    text-shadow: 0 3px 6px rgba(0,0,0,0.4);
+    letter-spacing: 0.5px;
+}
+
+.welcome-subtitle-text {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin: 0;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+    letter-spacing: 0.3px;
+}
+
+.school-illustration {
+    display: none;
+}
+
+/* Simple CSS illustration of school building */
+.school-building {
+    width: 200px;
+    height: 120px;
+    background: #fff;
+    border-radius: 8px 8px 0 0;
+    position: relative;
+    margin: 0 auto;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.school-roof {
+    width: 220px;
+    height: 40px;
+    background: #d32f2f;
+    position: absolute;
+    top: -20px;
+    left: -10px;
+    clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+}
+
+.school-windows {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.window {
+    width: 20px;
+    height: 30px;
+    background: #87ceeb;
+    border-radius: 2px;
+}
+
+.school-door {
+    width: 30px;
+    height: 50px;
+    background: #8b4513;
+    position: absolute;
+    bottom: 0;
+    left: 85px;
+    border-radius: 2px 2px 0 0;
+}
+
+/* Decorative elements */
+.cloud {
+    position: absolute;
+    background: rgba(255,255,255,0.3);
+    border-radius: 50%;
+}
+
+.cloud:nth-child(1) {
+    width: 80px;
+    height: 40px;
+    top: 20%;
+    left: 10%;
+    animation: float 6s ease-in-out infinite;
+}
+
+.cloud:nth-child(2) {
+    width: 60px;
+    height: 30px;
+    top: 60%;
+    right: 15%;
+    animation: float 8s ease-in-out infinite reverse;
+}
+
+.tree {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+}
+
+.tree-trunk {
+    width: 8px;
+    height: 40px;
+    background: #8b4513;
+    margin: 0 auto;
+}
+
+.tree-leaves {
+    width: 30px;
+    height: 30px;
+    background: #228b22;
+    border-radius: 50%;
+    margin: -15px auto 0;
+}
+
+.road {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 20px;
+    background: #696969;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+}
+
+.form-section {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: #f8f9fa;
+}
+
+.login-card {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    padding: 40px;
+    width: 100%;
+    max-width: 400px;
+}
+
+.logo-section {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.school-logo {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 15px;
+    border: 3px solid #e9ecef;
+}
+
+.school-name {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #495057;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+}
+
+.welcome-text {
+    color: #6c757d;
+    margin-bottom: 5px;
+}
+
+.welcome-subtitle {
+    color: #adb5bd;
+    font-size: 0.9rem;
+}
+
+.input-group {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.input-group .form-control {
+    padding-left: 45px;
+    height: 50px;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+.input-group .input-icon {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    z-index: 5;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #6c757d;
+    cursor: pointer;
+    z-index: 5;
+}
+
+.btn-login {
+    width: 100%;
+    height: 50px;
+    background: #0d6efd;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: background-color 0.3s;
+}
+
+.btn-login:hover {
+    background: #0b5ed7;
+}
+
+.btn-login:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+}
+
+.forgot-password {
+    text-align: center;
+    margin-top: 15px;
+}
+
+.forgot-password a {
+    color: #6c757d;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.forgot-password a:hover {
+    color: #0d6efd;
+}
+
+.info-section {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #e9ecef;
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.info-item i {
+    margin-right: 10px;
+    color: #28a745;
+}
+
+.alert {
+    border-radius: 8px;
+    border: none;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .login-page {
+        flex-direction: column;
+    }
+    
+    .visual-section {
+        display: none;
+    }
+    
+    .form-section {
+        flex: 1;
+        padding: 20px;
+    }
+    
+    .login-card {
+        padding: 30px 20px;
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .login-card {
+        padding: 25px 15px;
+    }
+    
+    .school-name {
+        font-size: 1.3rem;
+    }
+    
+    .input-group .form-control {
+        height: 45px;
+        font-size: 0.95rem;
+    }
+    
+    .btn-login {
+        height: 45px;
+    }
+}

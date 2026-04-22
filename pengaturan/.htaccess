@@ -1,0 +1,14 @@
+DirectoryIndex index.php
+
+# Prevent direct access to pengaturan directory
+# Allow access to PHP files but redirect directory access
+RewriteEngine On
+
+# Allow access to PHP files
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteCond %{REQUEST_FILENAME} \.php$
+RewriteRule ^ - [L]
+
+# Redirect directory access to main application
+RewriteCond %{REQUEST_URI} ^/pengaturan/?$
+RewriteRule ^(.*)$ /?page=pengaturan [R=302,L]
