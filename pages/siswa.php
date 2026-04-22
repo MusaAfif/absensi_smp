@@ -217,6 +217,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
         </div>
         <div class="d-flex gap-2">
             <a href="cetak_massal.php" class="btn btn-dark fw-bold">CETAK MASSAL</a>
+            <a href="naik_kelas_massal.php" class="btn btn-outline-success fw-bold">NAIK KELAS MASSAL</a>
             <a href="import_siswa.php" class="btn btn-outline-primary fw-bold">IMPORT DATA</a> 
             <a href="tambah_data_siswa.php" class="btn btn-primary fw-bold">TAMBAH SISWA</a>
         </div>
@@ -252,9 +253,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
                 <div style="min-width: 280px;">
                     <select name="bulk_action" class="form-select">
                         <option value="">📋 Pilih aksi massal...</option>
-                        <option value="aktif">✓ Tandai Aktif</option>
-                        <option value="lulus">🎓 Tandai Lulus</option>
-                        <option value="pindah">→ Tandai Pindah</option>
                         <option value="hapus">🗑️ Hapus Terpilih</option>
                     </select>
                 </div>
@@ -271,7 +269,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
                         <th class="ps-4" width="80">Foto</th>
                         <th width="100">NIS</th>
                         <th width="100">NISN</th>
-                        <th width="300">Nama Lengkap</th>
+                        <th width="220">Nama Lengkap</th>
+                        <th width="210">UUID Permanen</th>
                         <th width="50" class="text-center">JK</th>
                         <th width="100" class="text-center">Kelas</th>
                         <th width="100" class="text-center">Status</th>
@@ -321,6 +320,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
                         <td class="nis-text"><?= $r['nis']; ?></td>
                         <td class="text-muted"><?= $r['nisn'] ?: '-'; ?></td>
                         <td class="nama-text text-uppercase"><?= $r['nama_lengkap']; ?></td>
+                        <td><code style="font-size:0.75rem;"><?= htmlspecialchars($r['student_uuid'] ?? '-', ENT_QUOTES, 'UTF-8'); ?></code></td>
                         <td class="text-center fw-bold"><?= $r['jk']; ?></td>
                         <td class="text-center"><span class="badge-kelas"><?= $r['nama_kelas']; ?></span></td>
                         <td class="text-center"><span class="badge <?= $badgeClass; ?> py-2 px-3 rounded-pill" style="font-size:0.78rem;"><?= $statusLabel; ?></span></td>

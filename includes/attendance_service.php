@@ -256,8 +256,14 @@ function checkRateLimit(mysqli $conn, string $identifier, int $maxRequests = 10,
 
 function findStudentByIdentifier(mysqli $conn, string $identifier)
 {
-    $identifier = trim($identifier);
+    $resolved = resolve_student_identifier_for_lookup($identifier);
+    $identifier = trim((string)($resolved['value'] ?? ''));
     if ($identifier === '') {
+        return null;
+    }
+
+    if (($resolved['is_signed'] ?? false) && !($resolved['is_valid'] ?? false)) {
+        logAttendanceError('Invalid signed student payload', ['identifier' => $identifier]);
         return null;
     }
 

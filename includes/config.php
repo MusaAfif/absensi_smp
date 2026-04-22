@@ -279,10 +279,65 @@ function get_student_card_identifier(array $student): string
 {
     $studentUuid = trim((string) ($student['student_uuid'] ?? ''));
     if ($studentUuid !== '') {
-        return $studentUuid;
+        return build_student_qr_payload($studentUuid);
     }
 
     return (string) ($student['id_siswa'] ?? '');
+}
+
+function get_qr_signing_secret(): string
+{
+    static $secret = null;
+    if ($secret !== null) {
+        return $secret;
+    }
+
+    $envSecret = getenv('APP_QR_SIGNING_KEY');
+    if (is_string($envSecret) && trim($envSecret) !== '') {
+        $secret = trim($envSecret);
+        return $secret;
+    }
+
+    $secret = hash('sha256', APP_DB_NAME . '|' . APP_DB_HOST . '|permanent-card-signing');
+    return $secret;
+}
+
+function sign_student_uuid(string $studentUuid): string
+{
+    $signature = hash_hmac('sha256', $studentUuid, get_qr_signing_secret());
+    return substr($signature, 0, 16);
+}
+
+function build_student_qr_payload(string $studentUuid): string
+{
+    $uuid = strtolower(trim($studentUuid));
+    if (!preg_match('/^[a-f0-9\-]{36}$/', $uuid)) {
+        return $uuid;
+    }
+
+    return 'SID1.' . $uuid . '.' . sign_student_uuid($uuid);
+}
+
+function resolve_student_identifier_for_lookup(string $identifier): array
+{
+    $raw = trim($identifier);
+    if ($raw === '') {
+        return ['value' => '', 'is_signed' => false, 'is_valid' => false];
+    }
+
+    if (preg_match('/^SID1\.([a-f0-9\-]{36})\.([a-f0-9]{16})$/i', $raw, $matches)) {
+        $uuid = strtolower($matches[1]);
+        $signature = strtolower($matches[2]);
+        $expected = sign_student_uuid($uuid);
+
+        if (!hash_equals($expected, $signature)) {
+            return ['value' => $uuid, 'is_signed' => true, 'is_valid' => false];
+        }
+
+        return ['value' => $uuid, 'is_signed' => true, 'is_valid' => true];
+    }
+
+    return ['value' => $raw, 'is_signed' => false, 'is_valid' => true];
 }
 
 // ================================================================
