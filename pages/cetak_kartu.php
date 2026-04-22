@@ -59,7 +59,9 @@ $nameLength = function_exists('mb_strlen')
     ? mb_strlen(preg_replace('/\s+/u', '', $studentName))
     : strlen(preg_replace('/\s+/', '', $studentName));
 $nameClass = '';
-if ($nameLength >= 30) {
+if ($nameLength >= 36) {
+    $nameClass = ' name-xxs';
+} elseif ($nameLength >= 30) {
     $nameClass = ' name-xs';
 } elseif ($nameLength >= 24) {
     $nameClass = ' name-sm';
@@ -258,14 +260,14 @@ if ($nameLength >= 30) {
 
         .student-name {
             margin: 0 0 4px;
-            font-size: 7.6pt;
-            line-height: 1.15;
+            font-size: 7.2pt;
+            line-height: 1.1;
             font-weight: 700;
             text-transform: uppercase;
             color: var(--brand-navy);
             border-bottom: 1px dashed #cfd7ea;
             padding-bottom: 3px;
-            max-height: 1.02cm;
+            max-height: 0.95cm;
             display: block;
             word-break: break-word;
             overflow-wrap: anywhere;
@@ -273,13 +275,19 @@ if ($nameLength >= 30) {
         }
 
         .student-name.name-sm {
-            font-size: 7pt;
-            line-height: 1.1;
+            font-size: 6.6pt;
+            line-height: 1.08;
         }
 
         .student-name.name-xs {
-            font-size: 6.4pt;
-            line-height: 1.05;
+            font-size: 6pt;
+            line-height: 1.02;
+            letter-spacing: 0;
+        }
+
+        .student-name.name-xxs {
+            font-size: 5.5pt;
+            line-height: 1;
             letter-spacing: 0;
         }
 
@@ -309,12 +317,12 @@ if ($nameLength >= 30) {
             border-radius: 6px;
             background: #eef3ff;
             border: 1px solid #d7e1f6;
-            padding: 3px 5px;
+            padding: 2px 4px;
         }
 
         .id-box .id-title {
             margin: 0;
-            font-size: 4.4pt;
+            font-size: 4pt;
             text-transform: uppercase;
             letter-spacing: 0.35px;
             color: var(--ink-soft);
@@ -322,12 +330,15 @@ if ($nameLength >= 30) {
 
         .id-box .id-value {
             margin: 1px 0 0;
-            font-size: 5.2pt;
+            font-size: 4.2pt;
+            line-height: 1.02;
             color: var(--brand-navy);
             font-weight: 700;
-            white-space: nowrap;
+            white-space: normal;
+            word-break: break-all;
+            overflow-wrap: anywhere;
             overflow: hidden;
-            text-overflow: ellipsis;
+            max-height: 0.46cm;
         }
 
         .qr-wrap {
