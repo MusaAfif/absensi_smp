@@ -412,7 +412,6 @@ if ($fotoSiswa === '' || !file_exists('../assets/img/siswa/' . $fotoSiswa)) {
     </div>
 </div>
 
-<?php include '../includes/footer.php'; ?>
 </body>
 </html>
 

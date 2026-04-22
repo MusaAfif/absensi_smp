@@ -48,6 +48,11 @@ body {
     transform: translateY(-1px);
 }
 
+/* Fallback utility for pages without Bootstrap */
+.d-none {
+    display: none !important;
+}
+
 .global-loading-overlay {
     position: fixed;
     inset: 0;
