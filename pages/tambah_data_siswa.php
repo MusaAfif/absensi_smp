@@ -56,11 +56,12 @@ if (isset($_POST['simpan'])) {
 
             // Insert jika tidak ada error
             if (empty($error)) {
+                $studentUuid = generate_uuid_v4();
                 $result = $dbHelper->insert(
-                    "INSERT INTO siswa (nis, nisn, nama_lengkap, jk, id_kelas, foto) 
-                     VALUES (?, ?, ?, ?, ?, ?)",
-                    [$nis, $nisn, $nama_lengkap, $jk, $id_kelas, $foto_baru],
-                    'sssssi'
+                    "INSERT INTO siswa (student_uuid, nis, nisn, nama_lengkap, jk, id_kelas, status_siswa, foto) 
+                     VALUES (?, ?, ?, ?, ?, ?, 'aktif', ?)",
+                    [$studentUuid, $nis, $nisn, $nama_lengkap, $jk, $id_kelas, $foto_baru],
+                    'sssssis'
                 );
 
                 if ($result) {
@@ -115,6 +116,7 @@ if (isset($_POST['simpan'])) {
             <div class="mb-3">
                 <label class="form-label fw-semibold">Nama Lengkap</label>
                 <input type="text" name="nama_lengkap" class="form-control" placeholder="Nama sesuai ijazah" required>
+                <small class="text-muted d-block mt-1">Siswa baru otomatis dibuatkan ID kartu permanen berbasis UUID.</small>
             </div>
 
             <div class="row">

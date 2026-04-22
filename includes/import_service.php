@@ -268,14 +268,15 @@ class StudentImportService
             return;
         }
 
-        $stmt = $this->conn->prepare("INSERT INTO siswa (nis, nisn, nama_lengkap, jk, id_kelas, foto) VALUES (?, ?, ?, ?, ?, 'default.png')");
+        $studentUuid = generate_uuid_v4();
+        $stmt = $this->conn->prepare("INSERT INTO siswa (student_uuid, nis, nisn, nama_lengkap, jk, id_kelas, status_siswa, foto) VALUES (?, ?, ?, ?, ?, ?, 'aktif', 'default.png')");
         if (!$stmt) {
             $this->logError("Row $lineNumber: Insert error");
             $this->stats['failed']++;
             return;
         }
 
-        $stmt->bind_param('ssssi', $nis, $nisn, $nama, $jk, $idKelas);
+        $stmt->bind_param('sssssi', $studentUuid, $nis, $nisn, $nama, $jk, $idKelas);
         if ($stmt->execute()) {
             $this->stats['success']++;
         } else {
@@ -313,13 +314,14 @@ class StudentImportService
 
     private function insertStudent(string $nis, string $nisn, string $nama, string $jk, int $idKelas, int $lineNumber): ?int
     {
-        $stmt = $this->conn->prepare("INSERT INTO siswa (nis, nisn, nama_lengkap, jk, id_kelas, foto) VALUES (?, ?, ?, ?, ?, 'default.png')");
+        $studentUuid = generate_uuid_v4();
+        $stmt = $this->conn->prepare("INSERT INTO siswa (student_uuid, nis, nisn, nama_lengkap, jk, id_kelas, status_siswa, foto) VALUES (?, ?, ?, ?, ?, ?, 'aktif', 'default.png')");
         if (!$stmt) {
             $this->logError("Row $lineNumber: Insert error");
             return null;
         }
 
-        $stmt->bind_param('ssssi', $nis, $nisn, $nama, $jk, $idKelas);
+        $stmt->bind_param('sssssi', $studentUuid, $nis, $nisn, $nama, $jk, $idKelas);
         if ($stmt->execute()) {
             $id = $this->conn->insert_id;
             $stmt->close();
@@ -333,7 +335,7 @@ class StudentImportService
 
     private function updateStudent(int $studentId, string $nisn, string $nama, string $jk, int $idKelas, int $lineNumber): void
     {
-        $stmt = $this->conn->prepare("UPDATE siswa SET nisn = ?, nama_lengkap = ?, jk = ?, id_kelas = ? WHERE id_siswa = ?");
+        $stmt = $this->conn->prepare("UPDATE siswa SET nisn = ?, nama_lengkap = ?, jk = ?, id_kelas = ?, status_siswa = 'aktif' WHERE id_siswa = ?");
         if (!$stmt) {
             $this->logError("Row $lineNumber: Update error");
             return;

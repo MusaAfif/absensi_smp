@@ -3,11 +3,21 @@ require_once __DIR__ . '/../includes/config.php';
 cek_login();
 require_once __DIR__ . '/../includes/qr_helper.php';
 
-$id = isset($_GET['id']) ? mysqli_real_escape_string($conn, $_GET['id']) : '';
-$query = mysqli_query($conn, "SELECT s.*, k.nama_kelas FROM siswa s 
-                              LEFT JOIN kelas k ON s.id_kelas = k.id_kelas 
-                              WHERE s.id_siswa = '$id'");
-$d = mysqli_fetch_assoc($query);
+$id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+$stmt = mysqli_prepare(
+    $conn,
+    "SELECT s.*, k.nama_kelas FROM siswa s
+     LEFT JOIN kelas k ON s.id_kelas = k.id_kelas
+     WHERE s.id_siswa = ? LIMIT 1"
+);
+$d = null;
+if ($stmt) {
+    mysqli_stmt_bind_param($stmt, 'i', $id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    $d = $result ? mysqli_fetch_assoc($result) : null;
+    mysqli_stmt_close($stmt);
+}
 
 if (!$d) { die("Data tidak ditemukan."); }
 
@@ -24,10 +34,7 @@ while ($logoRow = mysqli_fetch_assoc($logoQuery)) {
     }
 }
 
-$qrSource = trim((string)($d['nisn'] ?? ''));
-if ($qrSource === '') {
-    $qrSource = 'NISN_TIDAK_VALID_' . (string)($d['id_siswa'] ?? '0');
-}
+$qrSource = get_student_card_identifier($d);
 $qrDataUri = generateQrDataUri($qrSource, QR_ECLEVEL_H, 10, 2);
 ?>
 <!DOCTYPE html>
@@ -75,7 +82,7 @@ $qrDataUri = generateQrDataUri($qrSource, QR_ECLEVEL_H, 10, 2);
         .col-data h2 { margin: 0 0 5px 0; font-size: 9pt; color: #003399; font-weight: 700; border-bottom: 1px solid #eee; text-transform: uppercase; }
         .data-table { font-size: 7pt; width: 100%; border-collapse: collapse; }
         .data-table td { padding: 1px 0; vertical-align: top; }
-        .label { width: 35px; color: #666; font-weight: 600; }
+        .label { width: 42px; color: #666; font-weight: 600; }
         .val { color: #000; font-weight: 600; }
 
         /* 3. Kolom Kanan: QR Code Besar */
@@ -119,7 +126,7 @@ $qrDataUri = generateQrDataUri($qrSource, QR_ECLEVEL_H, 10, 2);
         </div>
         <div class="header-text">
             <h1>KARTU ABSENSI SISWA</h1>
-            <p>SMP NEGERI 1 INDONESIA - Tahun Ajaran 2023/2024</p>
+            <p>Kartu permanen reusable untuk absensi harian</p>
         </div>
         <div class="logo-box">
             <?php if ($logoPemda && file_exists('../assets/img/logo_pemda/'.$logoPemda)): ?>
@@ -138,8 +145,8 @@ $qrDataUri = generateQrDataUri($qrSource, QR_ECLEVEL_H, 10, 2);
             <table class="data-table">
                 <tr><td class="label">NIS</td><td class="val">: <?= $d['nis']; ?></td></tr>
                 <tr><td class="label">NISN</td><td class="val">: <?= $d['nisn'] ?: '-'; ?></td></tr>
-                <tr><td class="label">KELAS</td><td class="val">: <?= $d['nama_kelas']; ?></td></tr>
                 <tr><td class="label">JK</td><td class="val">: <?= ($d['jk'] == 'L' ? 'LAKI-LAKI' : 'PEREMPUAN'); ?></td></tr>
+                <tr><td class="label">ID</td><td class="val">: <?= htmlspecialchars($qrSource, ENT_QUOTES, 'UTF-8'); ?></td></tr>
             </table>
         </div>
         
@@ -150,7 +157,7 @@ $qrDataUri = generateQrDataUri($qrSource, QR_ECLEVEL_H, 10, 2);
     </div>
 
     <div class="footer">
-        <p>Tunjukkan kartu ini saat melakukan absensi</p>
+        <p>Kartu ini tetap berlaku sampai siswa lulus atau kartu diganti</p>
     </div>
 </div>
 

@@ -64,6 +64,227 @@ date_default_timezone_set('Asia/Jakarta');
 define('APP_TIMEZONE', 'Asia/Jakarta');
 define('APP_ENV', 'production');
 
+function generate_uuid_v4(): string
+{
+    $bytes = random_bytes(16);
+    $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
+    $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
+    $hex = bin2hex($bytes);
+
+    return sprintf(
+        '%s-%s-%s-%s-%s',
+        substr($hex, 0, 8),
+        substr($hex, 8, 4),
+        substr($hex, 12, 4),
+        substr($hex, 16, 4),
+        substr($hex, 20, 12)
+    );
+}
+
+function get_current_tahun_ajaran_label(): string
+{
+    $month = (int) date('n');
+    $year = (int) date('Y');
+
+    if ($month >= 7) {
+        return sprintf('%d/%d', $year, $year + 1);
+    }
+
+    return sprintf('%d/%d', $year - 1, $year);
+}
+
+function run_schema_query(mysqli $conn, string $sql): bool
+{
+    try {
+        return mysqli_query($conn, $sql) !== false;
+    } catch (Throwable $e) {
+        app_log_error('Schema query skipped', [
+            'error' => $e->getMessage(),
+            'sql' => $sql,
+        ]);
+        return false;
+    }
+}
+
+function schema_column_exists(mysqli $conn, string $table, string $column): bool
+{
+    try {
+        $table = mysqli_real_escape_string($conn, $table);
+        $column = mysqli_real_escape_string($conn, $column);
+        $result = mysqli_query($conn, "SHOW COLUMNS FROM {$table} LIKE '{$column}'");
+        return $result && mysqli_num_rows($result) > 0;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function schema_index_exists(mysqli $conn, string $table, string $index): bool
+{
+    try {
+        $table = mysqli_real_escape_string($conn, $table);
+        $index = mysqli_real_escape_string($conn, $index);
+        $result = mysqli_query($conn, "SHOW INDEX FROM {$table} WHERE Key_name = '{$index}'");
+        return $result && mysqli_num_rows($result) > 0;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function ensure_student_identity_schema(mysqli $conn): void
+{
+    static $initialized = false;
+
+    if ($initialized) {
+        return;
+    }
+
+    $initialized = true;
+
+    if (!schema_column_exists($conn, 'siswa', 'student_uuid')) {
+        run_schema_query($conn, "ALTER TABLE siswa ADD COLUMN student_uuid CHAR(36) NULL AFTER id_siswa");
+    }
+    if (!schema_column_exists($conn, 'siswa', 'status_siswa')) {
+        run_schema_query($conn, "ALTER TABLE siswa ADD COLUMN status_siswa ENUM('aktif','lulus','pindah','nonaktif','hapus') NOT NULL DEFAULT 'aktif' AFTER id_kelas");
+    }
+    if (!schema_index_exists($conn, 'siswa', 'uk_siswa_student_uuid')) {
+        run_schema_query($conn, "ALTER TABLE siswa ADD UNIQUE KEY uk_siswa_student_uuid (student_uuid)");
+    }
+    run_schema_query($conn, "UPDATE siswa SET status_siswa = 'aktif' WHERE status_siswa IS NULL OR status_siswa = ''");
+
+    try {
+        $uuidResult = mysqli_query($conn, "SELECT id_siswa FROM siswa WHERE student_uuid IS NULL OR student_uuid = ''");
+    } catch (Throwable $e) {
+        app_log_error('UUID backfill select failed', ['error' => $e->getMessage()]);
+        $uuidResult = false;
+    }
+    if ($uuidResult) {
+        while ($row = mysqli_fetch_assoc($uuidResult)) {
+            $uuid = generate_uuid_v4();
+            try {
+                $stmt = mysqli_prepare($conn, 'UPDATE siswa SET student_uuid = ? WHERE id_siswa = ?');
+            } catch (Throwable $e) {
+                app_log_error('UUID backfill prepare failed', ['error' => $e->getMessage()]);
+                $stmt = false;
+            }
+            if ($stmt) {
+                try {
+                    mysqli_stmt_bind_param($stmt, 'si', $uuid, $row['id_siswa']);
+                    mysqli_stmt_execute($stmt);
+                } catch (Throwable $e) {
+                    app_log_error('UUID backfill execute failed', ['error' => $e->getMessage(), 'id_siswa' => $row['id_siswa']]);
+                }
+                mysqli_stmt_close($stmt);
+            }
+        }
+        mysqli_free_result($uuidResult);
+    }
+
+    run_schema_query(
+        $conn,
+        "CREATE TABLE IF NOT EXISTS tahun_ajaran (
+            id_tahun_ajaran INT AUTO_INCREMENT PRIMARY KEY,
+            nama_tahun_ajaran VARCHAR(20) NOT NULL UNIQUE,
+            is_active TINYINT(1) NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
+    );
+
+    run_schema_query(
+        $conn,
+        "CREATE TABLE IF NOT EXISTS siswa_kelas (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            id_siswa INT NOT NULL,
+            id_kelas INT NOT NULL,
+            id_tahun_ajaran INT NOT NULL,
+            status ENUM('aktif','lulus','pindah','nonaktif') NOT NULL DEFAULT 'aktif',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_siswa_tahun (id_siswa, id_tahun_ajaran),
+            KEY idx_siswa_kelas_kelas (id_kelas),
+            CONSTRAINT fk_siswa_kelas_siswa FOREIGN KEY (id_siswa) REFERENCES siswa (id_siswa) ON DELETE CASCADE,
+            CONSTRAINT fk_siswa_kelas_kelas FOREIGN KEY (id_kelas) REFERENCES kelas (id_kelas) ON DELETE CASCADE,
+            CONSTRAINT fk_siswa_kelas_tahun FOREIGN KEY (id_tahun_ajaran) REFERENCES tahun_ajaran (id_tahun_ajaran) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
+    );
+
+    $activeYearLabel = get_current_tahun_ajaran_label();
+    try {
+        $stmt = mysqli_prepare($conn, 'INSERT INTO tahun_ajaran (nama_tahun_ajaran, is_active) VALUES (?, 1) ON DUPLICATE KEY UPDATE nama_tahun_ajaran = VALUES(nama_tahun_ajaran)');
+    } catch (Throwable $e) {
+        app_log_error('Active year prepare failed', ['error' => $e->getMessage()]);
+        $stmt = false;
+    }
+    if ($stmt) {
+        try {
+            mysqli_stmt_bind_param($stmt, 's', $activeYearLabel);
+            mysqli_stmt_execute($stmt);
+        } catch (Throwable $e) {
+            app_log_error('Active year execute failed', ['error' => $e->getMessage()]);
+        }
+        mysqli_stmt_close($stmt);
+    }
+
+    run_schema_query($conn, "UPDATE tahun_ajaran SET is_active = CASE WHEN nama_tahun_ajaran = '" . mysqli_real_escape_string($conn, $activeYearLabel) . "' THEN 1 ELSE 0 END");
+
+    try {
+        $activeYearResult = mysqli_query($conn, "SELECT id_tahun_ajaran FROM tahun_ajaran WHERE is_active = 1 LIMIT 1");
+    } catch (Throwable $e) {
+        app_log_error('Active year select failed', ['error' => $e->getMessage()]);
+        $activeYearResult = false;
+    }
+    $activeYear = $activeYearResult ? mysqli_fetch_assoc($activeYearResult) : null;
+    if ($activeYearResult) {
+        mysqli_free_result($activeYearResult);
+    }
+
+    if ($activeYear) {
+        $activeYearId = (int) $activeYear['id_tahun_ajaran'];
+        $sql = "
+            INSERT INTO siswa_kelas (id_siswa, id_kelas, id_tahun_ajaran, status)
+            SELECT
+                s.id_siswa,
+                s.id_kelas,
+                ?,
+                CASE
+                    WHEN s.status_siswa IN ('lulus', 'pindah', 'nonaktif') THEN s.status_siswa
+                    ELSE 'aktif'
+                END
+            FROM siswa s
+            WHERE s.id_kelas IS NOT NULL
+            ON DUPLICATE KEY UPDATE
+                id_kelas = VALUES(id_kelas),
+                status = VALUES(status),
+                updated_at = CURRENT_TIMESTAMP
+        ";
+        try {
+            $stmt = mysqli_prepare($conn, $sql);
+        } catch (Throwable $e) {
+            app_log_error('siswa_kelas sync prepare failed', ['error' => $e->getMessage()]);
+            $stmt = false;
+        }
+        if ($stmt) {
+            try {
+                mysqli_stmt_bind_param($stmt, 'i', $activeYearId);
+                mysqli_stmt_execute($stmt);
+            } catch (Throwable $e) {
+                app_log_error('siswa_kelas sync execute failed', ['error' => $e->getMessage()]);
+            }
+            mysqli_stmt_close($stmt);
+        }
+    }
+}
+
+function get_student_card_identifier(array $student): string
+{
+    $studentUuid = trim((string) ($student['student_uuid'] ?? ''));
+    if ($studentUuid !== '') {
+        return $studentUuid;
+    }
+
+    return (string) ($student['id_siswa'] ?? '');
+}
+
 // ================================================================
 // FIXED: Proper BASE_URL detection for Laragon
 // ================================================================
@@ -112,6 +333,9 @@ if (!$conn) {
     http_response_code(500);
     exit('Terjadi masalah koneksi database. Periksa konfigurasi server dan coba lagi.');
 }
+
+mysqli_set_charset($conn, 'utf8mb4');
+ensure_student_identity_schema($conn);
 
 // Fungsi proteksi halaman admin
 function cek_login() {

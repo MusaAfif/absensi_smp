@@ -200,31 +200,32 @@ function validateDeviceKey(mysqli $conn, string $apiKey): bool
 
 function checkRateLimit(mysqli $conn, string $identifier, int $maxRequests = 10, int $timeWindow = 60): bool
 {
-    // Create rate_limit table if not exists
-    $createTable = "CREATE TABLE IF NOT EXISTS rate_limit (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        identifier VARCHAR(255) NOT NULL,
-        request_count INT DEFAULT 1,
-        window_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_identifier_window (identifier, window_start)
-    )";
+    mysqli_query(
+        $conn,
+        "CREATE TABLE IF NOT EXISTS rate_limit (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            identifier VARCHAR(255) NOT NULL,
+            request_count INT NOT NULL DEFAULT 1,
+            window_start INT NOT NULL,
+            INDEX idx_identifier_window (identifier, window_start)
+        ) ENGINE=InnoDB"
+    );
+    mysqli_query($conn, "ALTER TABLE rate_limit MODIFY window_start INT NOT NULL");
 
-    mysqli_query($conn, $createTable);
-
-    $currentTime = date('Y-m-d H:i:s');
-    $windowStart = date('Y-m-d H:i:s', strtotime("-{$timeWindow} seconds"));
+    $currentTime = time();
+    $windowStart = $currentTime - $timeWindow;
 
     // Clean old entries
     $cleanupStmt = $conn->prepare('DELETE FROM rate_limit WHERE window_start < ?');
     if ($cleanupStmt) {
-        $cleanupStmt->bind_param('s', $windowStart);
+        $cleanupStmt->bind_param('i', $windowStart);
         $cleanupStmt->execute();
         $cleanupStmt->close();
     }
 
     // Check current count
     $stmt = $conn->prepare('SELECT request_count FROM rate_limit WHERE identifier = ? AND window_start >= ?');
-    $stmt->bind_param('ss', $identifier, $windowStart);
+    $stmt->bind_param('si', $identifier, $windowStart);
     $stmt->execute();
     $result = $stmt->get_result();
     $row = $result->fetch_assoc();
@@ -240,12 +241,12 @@ function checkRateLimit(mysqli $conn, string $identifier, int $maxRequests = 10,
         if (!$updateStmt) {
             return false;
         }
-        $updateStmt->bind_param('ss', $identifier, $windowStart);
+        $updateStmt->bind_param('si', $identifier, $windowStart);
         $updateStmt->execute();
         $updateStmt->close();
     } else {
         $stmt = $conn->prepare('INSERT INTO rate_limit (identifier, request_count, window_start) VALUES (?, 1, ?)');
-        $stmt->bind_param('ss', $identifier, $currentTime);
+        $stmt->bind_param('si', $identifier, $currentTime);
         $stmt->execute();
         $stmt->close();
     }
@@ -260,7 +261,7 @@ function findStudentByIdentifier(mysqli $conn, string $identifier)
         return null;
     }
 
-    $matchColumns = ['nisn'];
+    $matchColumns = ['student_uuid', 'nisn'];
     if (columnExists($conn, 'siswa', 'rfid_uid')) {
         $matchColumns[] = 'rfid_uid';
     }
@@ -272,7 +273,7 @@ function findStudentByIdentifier(mysqli $conn, string $identifier)
         return "s.$col = ?";
     }, $matchColumns);
 
-    $sql = 'SELECT s.id_siswa, s.nama_lengkap, s.foto, s.nisn, s.nis, k.nama_kelas FROM siswa s LEFT JOIN kelas k ON s.id_kelas = k.id_kelas WHERE ' . implode(' OR ', $whereParts) . ' LIMIT 1';
+    $sql = 'SELECT s.id_siswa, s.student_uuid, s.nama_lengkap, s.foto, s.nisn, s.nis, s.id_kelas, s.status_siswa, k.nama_kelas FROM siswa s LEFT JOIN kelas k ON s.id_kelas = k.id_kelas WHERE ' . implode(' OR ', $whereParts) . ' LIMIT 1';
 
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
@@ -288,6 +289,57 @@ function findStudentByIdentifier(mysqli $conn, string $identifier)
     $student = $result ? $result->fetch_assoc() : null;
     $stmt->close();
     return $student;
+}
+
+function validateStudentAttendanceEligibility(mysqli $conn, array $student): array
+{
+    $studentStatus = trim((string) ($student['status_siswa'] ?? 'aktif'));
+    if ($studentStatus !== '' && $studentStatus !== 'aktif') {
+        return [
+            'allowed' => false,
+            'message' => 'Siswa tidak aktif untuk absensi.',
+        ];
+    }
+
+    $activeYear = getActiveTahunAjaran($conn);
+    if (!$activeYear || !tableExists($conn, 'siswa_kelas')) {
+        return [
+            'allowed' => true,
+        ];
+    }
+
+    $stmt = $conn->prepare('SELECT status FROM siswa_kelas WHERE id_siswa = ? AND id_tahun_ajaran = ? LIMIT 1');
+    if (!$stmt) {
+        return [
+            'allowed' => true,
+        ];
+    }
+
+    $studentId = (int) $student['id_siswa'];
+    $activeYearId = (int) $activeYear['id_tahun_ajaran'];
+    $stmt->bind_param('ii', $studentId, $activeYearId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    if (!$row) {
+        return [
+            'allowed' => false,
+            'message' => 'Siswa belum terdaftar pada tahun ajaran aktif.',
+        ];
+    }
+
+    if (($row['status'] ?? 'aktif') !== 'aktif') {
+        return [
+            'allowed' => false,
+            'message' => 'Status siswa pada tahun ajaran aktif tidak mengizinkan absensi.',
+        ];
+    }
+
+    return [
+        'allowed' => true,
+    ];
 }
 
 function getAttendanceRecords(mysqli $conn, int $studentId, string $date): array
@@ -525,13 +577,27 @@ function processAttendanceScanRequest(mysqli $conn, string $identifier, string $
         ];
     }
 
-    // Cari siswa berdasarkan identifier (NISN)
+    // Cari siswa berdasarkan identifier permanen kartu / fallback identifier lama
     $student = findStudentByIdentifier($conn, $identifier);
     if (!$student) {
         return [
             'status' => 'error',
             'code' => 404,
             'message' => 'Data siswa tidak ditemukan untuk kode ini.',
+        ];
+    }
+
+    $eligibility = validateStudentAttendanceEligibility($conn, $student);
+    if (!$eligibility['allowed']) {
+        return [
+            'status' => 'error',
+            'code' => 422,
+            'message' => $eligibility['message'],
+            'student' => [
+                'nama' => $student['nama_lengkap'],
+                'kelas' => $student['nama_kelas'] ?? '',
+                'foto' => $student['foto'] ?? 'default.png',
+            ],
         ];
     }
 
@@ -601,6 +667,20 @@ function processAttendanceMasuk(mysqli $conn, string $kode, string $tipe = 'rfid
             'status' => 'error',
             'code' => 404,
             'message' => 'Data siswa tidak ditemukan untuk kode ini.',
+        ];
+    }
+
+    $eligibility = validateStudentAttendanceEligibility($conn, $student);
+    if (!$eligibility['allowed']) {
+        return [
+            'status' => 'error',
+            'code' => 422,
+            'message' => $eligibility['message'],
+            'student' => [
+                'nama' => $student['nama_lengkap'],
+                'kelas' => $student['nama_kelas'] ?? '',
+                'foto' => $student['foto'] ?? 'default.png',
+            ],
         ];
     }
 
@@ -691,6 +771,20 @@ function processAttendancePulang(mysqli $conn, string $kode, string $tipe = 'rfi
             'status' => 'error',
             'code' => 404,
             'message' => 'Data siswa tidak ditemukan untuk kode ini.',
+        ];
+    }
+
+    $eligibility = validateStudentAttendanceEligibility($conn, $student);
+    if (!$eligibility['allowed']) {
+        return [
+            'status' => 'error',
+            'code' => 422,
+            'message' => $eligibility['message'],
+            'student' => [
+                'nama' => $student['nama_lengkap'],
+                'kelas' => $student['nama_kelas'] ?? '',
+                'foto' => $student['foto'] ?? 'default.png',
+            ],
         ];
     }
 
