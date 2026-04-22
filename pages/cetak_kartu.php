@@ -24,7 +24,8 @@ if (!$d) { die("Data tidak ditemukan."); }
 // Ambil logo dari pengaturan
 $logoSekolah = '';
 $logoPemda = '';
-$logoQuery = mysqli_query($conn, "SELECT nama_pengaturan, isi_pengaturan FROM pengaturan WHERE nama_pengaturan IN ('logo_sekolah','logo_pemda')");
+$namaSekolah = 'SMPN 1 Indonesia';
+$logoQuery = mysqli_query($conn, "SELECT nama_pengaturan, isi_pengaturan FROM pengaturan WHERE nama_pengaturan IN ('logo_sekolah','logo_pemda','nama_sekolah')");
 while ($logoRow = mysqli_fetch_assoc($logoQuery)) {
     if ($logoRow['nama_pengaturan'] == 'logo_sekolah') {
         $logoSekolah = $logoRow['isi_pengaturan'];
@@ -32,10 +33,22 @@ while ($logoRow = mysqli_fetch_assoc($logoQuery)) {
     if ($logoRow['nama_pengaturan'] == 'logo_pemda') {
         $logoPemda = $logoRow['isi_pengaturan'];
     }
+    if ($logoRow['nama_pengaturan'] == 'nama_sekolah' && trim((string)$logoRow['isi_pengaturan']) !== '') {
+        $namaSekolah = trim((string)$logoRow['isi_pengaturan']);
+    }
 }
 
 $qrSource = get_student_card_identifier($d);
 $qrDataUri = generateQrDataUri($qrSource, QR_ECLEVEL_H, 10, 2);
+$cardIdentity = trim((string)($d['student_uuid'] ?? ''));
+if ($cardIdentity === '') {
+    $cardIdentity = 'SID-' . str_pad((string)$d['id_siswa'], 6, '0', STR_PAD_LEFT);
+}
+
+$fotoSiswa = trim((string)($d['foto'] ?? ''));
+if ($fotoSiswa === '' || !file_exists('../assets/img/siswa/' . $fotoSiswa)) {
+    $fotoSiswa = 'default.png';
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -44,68 +57,298 @@ $qrDataUri = generateQrDataUri($qrSource, QR_ECLEVEL_H, 10, 2);
     <title>Cetak Kartu - <?= $d['nama_lengkap']; ?></title>
     <link href="../assets/css/site.css" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
-        
-        body { margin: 0; padding: 0; font-family: 'Poppins', Arial, sans-serif; background: #f0f0f0; }
-        .no-print { padding: 20px; background: #fff; border-bottom: 1px solid #ccc; margin-bottom: 20px; text-align: center; }
-        
-        /* Layout ID Card Standar Landscape */
-        .kartu-container { 
-            width: 8.56cm; height: 5.4cm; 
-            background: #fff; border-radius: 8px; 
-            overflow: hidden; position: relative;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            border: 1px solid #ddd;
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+        :root {
+            --brand-navy: #0b2f6b;
+            --brand-blue: #114aa3;
+            --brand-accent: #22c3a6;
+            --ink-dark: #1f2a3d;
+            --ink-soft: #5f6d85;
+            --paper: #f4f7fd;
         }
 
-        /* A. Header (Teks Putih, Teks di Tengah) */
-        .header { 
-            background: #003399; color: #fff; 
-            height: 28%; display: flex; align-items: center; justify-content: space-between; padding: 0 10px;
-            border-bottom: 2px solid #FFD700;
+        body {
+            margin: 0;
+            padding: 26px;
+            font-family: 'Poppins', Arial, sans-serif;
+            background: radial-gradient(circle at 20% 10%, #f9fbff 0, #eef3ff 35%, #e8edf8 100%);
+            color: var(--ink-dark);
         }
-        .logo-box { width: 18%; display: flex; align-items: center; justify-content: center; }
-        .logo-box img { max-height: 1.9cm; max-width: 100%; object-fit: contain; }
-        .header-text { flex: 1; text-align: center; padding: 0 10px; }
-        .header-text h1 { margin: 0; font-size: 10pt; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
-        .header-text p { margin: 0; font-size: 6pt; opacity: 0.9; }
 
-        /* B. Body (Dibagi 3 Kolom) */
-        .main-body { display: flex; height: 60%; padding: 8px; align-items: center; }
-        
-        /* 1. Kolom Kiri: Foto */
-        .col-foto { width: 30%; text-align: center; }
-        .col-foto img { width: 2.1cm; height: 2.7cm; object-fit: cover; border: 1px solid #003399; border-radius: 4px; }
-
-        /* 2. Kolom Tengah: Data Siswa (Alignment Kiri) */
-        .col-data { width: 45%; padding-left: 10px; }
-        .col-data h2 { margin: 0 0 5px 0; font-size: 9pt; color: #003399; font-weight: 700; border-bottom: 1px solid #eee; text-transform: uppercase; }
-        .data-table { font-size: 7pt; width: 100%; border-collapse: collapse; }
-        .data-table td { padding: 1px 0; vertical-align: top; }
-        .label { width: 42px; color: #666; font-weight: 600; }
-        .val { color: #000; font-weight: 600; }
-
-        /* 3. Kolom Kanan: QR Code Besar */
-        .col-qr { width: 25%; text-align: center; }
-        .col-qr img { width: 1.9cm; height: 1.9cm; display: block; margin: 0 auto; }
-        .qr-label { font-size: 5pt; font-weight: bold; margin-top: 2px; color: #003399; }
-
-        /* C. Footer (Background Abu) */
-        .footer { 
-            position: absolute; bottom: 0; width: 100%; height: 15%;
-            background: #f8f9fa; border-top: 1px solid #eee;
-            display: flex; align-items: center; justify-content: center;
+        .no-print {
+            max-width: 860px;
+            margin: 0 auto 18px;
+            padding: 14px 18px;
+            border-radius: 12px;
+            background: #ffffff;
+            box-shadow: 0 10px 24px rgba(20, 40, 90, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
         }
-        .footer p { font-size: 5.5pt; color: #555; margin: 0; font-style: italic; }
+
+        .no-print .title {
+            font-size: 13px;
+            color: var(--ink-soft);
+            margin: 0;
+        }
+
+        .action-wrap {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-action {
+            border: none;
+            border-radius: 10px;
+            padding: 9px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--brand-blue), var(--brand-navy));
+            color: #fff;
+        }
+
+        .btn-light {
+            background: #edf1fb;
+            color: var(--brand-navy);
+        }
+
+        .kartu-container {
+            width: 8.56cm;
+            height: 5.4cm;
+            margin: 0 auto;
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #d5def0;
+            box-shadow: 0 14px 30px rgba(23, 45, 92, 0.20);
+            background: linear-gradient(175deg, #ffffff 0%, var(--paper) 100%);
+        }
+
+        .kartu-container::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(120deg, rgba(17, 74, 163, 0.08), transparent 40%, rgba(34, 195, 166, 0.10) 100%);
+            pointer-events: none;
+        }
+
+        .header {
+            height: 31%;
+            padding: 7px 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(125deg, var(--brand-navy), var(--brand-blue));
+            border-bottom: 2px solid rgba(255, 255, 255, 0.22);
+            color: #fff;
+            position: relative;
+            z-index: 2;
+        }
+
+        .logo-box {
+            width: 17%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .logo-box img {
+            max-width: 100%;
+            max-height: 1.55cm;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.18));
+        }
+
+        .header-text {
+            width: 66%;
+            text-align: center;
+        }
+
+        .header-text h1 {
+            margin: 0;
+            font-size: 9.2pt;
+            letter-spacing: 0.7px;
+            text-transform: uppercase;
+            font-weight: 700;
+            line-height: 1.15;
+        }
+
+        .header-text .school {
+            margin: 3px 0 0;
+            font-size: 6pt;
+            font-weight: 500;
+            opacity: 0.95;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .main-body {
+            height: 56%;
+            padding: 7px 8px;
+            display: grid;
+            grid-template-columns: 26% 45% 29%;
+            gap: 8px;
+            align-items: center;
+            position: relative;
+            z-index: 2;
+        }
+
+        .photo-wrap {
+            text-align: center;
+        }
+
+        .photo-wrap img {
+            width: 1.95cm;
+            height: 2.45cm;
+            object-fit: cover;
+            border: 1px solid #c6d3ee;
+            border-radius: 8px;
+            background: #fff;
+            padding: 2px;
+        }
+
+        .photo-wrap .chip {
+            margin-top: 4px;
+            display: inline-block;
+            border-radius: 999px;
+            background: #e8eefc;
+            color: var(--brand-navy);
+            font-size: 5.3pt;
+            padding: 2px 7px;
+            font-weight: 600;
+        }
+
+        .student-name {
+            margin: 0 0 5px;
+            font-size: 8.3pt;
+            line-height: 1.2;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--brand-navy);
+            border-bottom: 1px dashed #cfd7ea;
+            padding-bottom: 4px;
+        }
+
+        .data-grid {
+            display: grid;
+            grid-template-columns: 44px 1fr;
+            row-gap: 2px;
+            column-gap: 6px;
+            font-size: 6.2pt;
+        }
+
+        .label {
+            color: var(--ink-soft);
+            font-weight: 600;
+        }
+
+        .value {
+            color: #1f2a3d;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .id-box {
+            margin-top: 5px;
+            border-radius: 6px;
+            background: #eef3ff;
+            border: 1px solid #d7e1f6;
+            padding: 4px 5px;
+        }
+
+        .id-box .id-title {
+            margin: 0;
+            font-size: 4.8pt;
+            text-transform: uppercase;
+            letter-spacing: 0.35px;
+            color: var(--ink-soft);
+        }
+
+        .id-box .id-value {
+            margin: 1px 0 0;
+            font-size: 5.7pt;
+            color: var(--brand-navy);
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .qr-wrap {
+            text-align: center;
+            border-radius: 10px;
+            background: #fff;
+            border: 1px solid #d8e0f2;
+            padding: 6px 4px;
+        }
+
+        .qr-wrap img {
+            width: 1.65cm;
+            height: 1.65cm;
+            margin: 0 auto;
+            display: block;
+        }
+
+        .qr-wrap .qr-text {
+            margin-top: 3px;
+            font-size: 5.1pt;
+            font-weight: 700;
+            color: var(--brand-navy);
+            text-transform: uppercase;
+            letter-spacing: 0.35px;
+        }
+
+        .footer {
+            height: 13%;
+            border-top: 1px solid #d7e0f3;
+            background: rgba(255, 255, 255, 0.82);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 8px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .footer .left {
+            font-size: 5pt;
+            color: #566480;
+            font-weight: 500;
+        }
+
+        .footer .right {
+            font-size: 4.9pt;
+            color: #73819a;
+        }
 
         @media print {
-            body { background: none; }
-            .no-print { display: none !important; }
-            .kartu-container { 
-                box-shadow: none; border: 1px solid #000; 
-                position: absolute; top: 0; left: 0; /* Paksa ke pojok kiri atas A4 */
+            body {
+                background: #fff;
+                padding: 0;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            .kartu-container {
+                margin: 0;
+                border-radius: 0;
+                box-shadow: none;
+                border: 1px solid #b7c6e6;
                 print-color-adjust: exact;
-                -webkit-print-color-adjust: exact; 
+                -webkit-print-color-adjust: exact;
             }
         }
     </style>
@@ -113,8 +356,11 @@ $qrDataUri = generateQrDataUri($qrSource, QR_ECLEVEL_H, 10, 2);
 <body>
 
 <div class="no-print">
-    <button onclick="window.print()" style="padding: 10px 20px; cursor: pointer; background: #003399; color: #fff; border: none; border-radius: 4px; font-weight: bold;">PRINT KARTU</button>
-    <a href="siswa.php" style="margin-left: 10px; text-decoration: none; color: #666;">Kembali ke Daftar Siswa</a>
+    <p class="title">Pratinjau kartu siswa untuk cetak ukuran ID-1 (8.56 x 5.40 cm)</p>
+    <div class="action-wrap">
+        <button onclick="window.print()" class="btn-action btn-primary">Print Kartu</button>
+        <a href="siswa.php" class="btn-action btn-light">Kembali</a>
+    </div>
 </div>
 
 <div class="kartu-container">
@@ -126,7 +372,7 @@ $qrDataUri = generateQrDataUri($qrSource, QR_ECLEVEL_H, 10, 2);
         </div>
         <div class="header-text">
             <h1>KARTU ABSENSI SISWA</h1>
-            <p>Kartu permanen reusable untuk absensi harian</p>
+            <p class="school"><?= htmlspecialchars(strtoupper($namaSekolah), ENT_QUOTES, 'UTF-8'); ?></p>
         </div>
         <div class="logo-box">
             <?php if ($logoPemda && file_exists('../assets/img/logo_pemda/'.$logoPemda)): ?>
@@ -136,28 +382,33 @@ $qrDataUri = generateQrDataUri($qrSource, QR_ECLEVEL_H, 10, 2);
     </div>
     
     <div class="main-body">
-        <div class="col-foto">
-            <img src="../assets/img/siswa/<?= $d['foto'] ?: 'default.png'; ?>" alt="Foto">
+        <div class="photo-wrap">
+            <img src="../assets/img/siswa/<?= htmlspecialchars($fotoSiswa, ENT_QUOTES, 'UTF-8'); ?>" alt="Foto">
+            <span class="chip">Kartu Permanen</span>
         </div>
         
-        <div class="col-data">
-            <h2><?= strtoupper($d['nama_lengkap']); ?></h2>
-            <table class="data-table">
-                <tr><td class="label">NIS</td><td class="val">: <?= $d['nis']; ?></td></tr>
-                <tr><td class="label">NISN</td><td class="val">: <?= $d['nisn'] ?: '-'; ?></td></tr>
-                <tr><td class="label">JK</td><td class="val">: <?= ($d['jk'] == 'L' ? 'LAKI-LAKI' : 'PEREMPUAN'); ?></td></tr>
-                <tr><td class="label">ID</td><td class="val">: <?= htmlspecialchars($qrSource, ENT_QUOTES, 'UTF-8'); ?></td></tr>
-            </table>
+        <div>
+            <h2 class="student-name"><?= htmlspecialchars($d['nama_lengkap'], ENT_QUOTES, 'UTF-8'); ?></h2>
+            <div class="data-grid">
+                <div class="label">NIS</div><div class="value">: <?= htmlspecialchars((string)$d['nis'], ENT_QUOTES, 'UTF-8'); ?></div>
+                <div class="label">NISN</div><div class="value">: <?= htmlspecialchars((string)($d['nisn'] ?: '-'), ENT_QUOTES, 'UTF-8'); ?></div>
+                <div class="label">JK</div><div class="value">: <?= ($d['jk'] == 'L' ? 'Laki-laki' : 'Perempuan'); ?></div>
+            </div>
+            <div class="id-box">
+                <p class="id-title">Identitas Kartu</p>
+                <p class="id-value"><?= htmlspecialchars($cardIdentity, ENT_QUOTES, 'UTF-8'); ?></p>
+            </div>
         </div>
         
-        <div class="col-qr">
+        <div class="qr-wrap">
             <img src="<?= htmlspecialchars($qrDataUri, ENT_QUOTES, 'UTF-8'); ?>" alt="QR">
-            <div class="qr-label">SCAN UNTUK ABSENSI</div>
+            <div class="qr-text">Scan untuk absensi</div>
         </div>
     </div>
 
     <div class="footer">
-        <p>Kartu ini tetap berlaku sampai siswa lulus atau kartu diganti</p>
+        <div class="left">Berlaku sampai siswa lulus / kartu diganti resmi</div>
+        <div class="right">SID Secure Card</div>
     </div>
 </div>
 

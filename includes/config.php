@@ -395,6 +395,23 @@ ensure_student_identity_schema($conn);
 // Fungsi proteksi halaman admin
 function cek_login() {
     if (!isset($_SESSION['status']) || $_SESSION['status'] != "login") {
+        $requestUri = $_SERVER['REQUEST_URI'] ?? '';
+        $basePath = BASE_PATH;
+
+        if ($requestUri !== '' && !preg_match('~^(https?:)?//~i', $requestUri)) {
+            $redirectPath = '';
+
+            if ($basePath !== '/' && str_starts_with($requestUri, $basePath)) {
+                $redirectPath = ltrim(substr($requestUri, strlen($basePath)), '/');
+            } elseif (str_starts_with($requestUri, '/')) {
+                $redirectPath = ltrim($requestUri, '/');
+            }
+
+            if ($redirectPath !== '' && !str_contains($redirectPath, '..')) {
+                $_SESSION['login_redirect'] = $redirectPath;
+            }
+        }
+
         header("Location: " . BASE_URL . "login.php?pesan=wajib_login");
         exit;
     }

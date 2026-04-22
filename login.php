@@ -97,7 +97,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
             $_SESSION['nama_admin'] = $data['nama'] ?? $data['nama_admin'] ?? $data['username'];
             $_SESSION['role'] = $data['role'] ?? 'admin';
             error_log("Login berhasil untuk user: $user dari tabel $user_source");
-            header("Location: " . BASE_URL . "pages/dashboard.php");
+
+            $redirectPath = $_SESSION['login_redirect'] ?? 'pages/dashboard.php';
+            unset($_SESSION['login_redirect']);
+
+            $redirectPath = ltrim((string)$redirectPath, '/');
+            $isSafePath = $redirectPath !== ''
+                && !preg_match('~^(https?:)?//~i', $redirectPath)
+                && !str_contains($redirectPath, '..')
+                && preg_match('/^[a-zA-Z0-9\/_\-\.\?=&%]+$/', $redirectPath);
+
+            if (!$isSafePath) {
+                $redirectPath = 'pages/dashboard.php';
+            }
+
+            header("Location: " . BASE_URL . $redirectPath);
             exit;
         }
     }
