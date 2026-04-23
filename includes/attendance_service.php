@@ -356,12 +356,24 @@ function getAttendanceRecords(mysqli $conn, int $studentId, string $date): array
         $selectFields .= ', ' . $timeColumn . ' AS scan_time';
     }
 
-    $stmt = $conn->prepare("SELECT $selectFields FROM absensi WHERE id_siswa = ? AND tanggal = ? ORDER BY id_absen ASC");
+    $activeYearId = get_active_academic_year_id($conn);
+    $hasYearColumn = columnExists($conn, 'absensi', 'id_tahun_ajaran');
+    $sql = "SELECT $selectFields FROM absensi WHERE id_siswa = ? AND tanggal = ?";
+    if ($hasYearColumn && $activeYearId) {
+        $sql .= ' AND id_tahun_ajaran = ?';
+    }
+    $sql .= ' ORDER BY id_absen ASC';
+
+    $stmt = $conn->prepare($sql);
     if (!$stmt) {
         logAttendanceError('getAttendanceRecords prepare failed', ['error' => $conn->error]);
         return [];
     }
-    $stmt->bind_param('is', $studentId, $date);
+    if ($hasYearColumn && $activeYearId) {
+        $stmt->bind_param('isi', $studentId, $date, $activeYearId);
+    } else {
+        $stmt->bind_param('is', $studentId, $date);
+    }
     $stmt->execute();
     $result = $stmt->get_result();
     $rows = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
@@ -491,6 +503,15 @@ function insertAttendanceRecord(mysqli $conn, int $studentId, string $date, stri
         $columns = ['id_siswa', 'tanggal'];
         $types = 'is';
         $params = [$studentId, $date];
+
+        if (columnExists($conn, 'absensi', 'id_tahun_ajaran')) {
+            $activeYearId = get_active_academic_year_id($conn);
+            if ($activeYearId) {
+                $columns[] = 'id_tahun_ajaran';
+                $types .= 'i';
+                $params[] = $activeYearId;
+            }
+        }
 
         if (columnExists($conn, 'absensi', 'status')) {
             $columns[] = 'status';
@@ -693,10 +714,21 @@ function processAttendanceMasuk(mysqli $conn, string $kode, string $tipe = 'rfid
     $date = date('Y-m-d');
     $time = date('H:i:s');
     $status_masuk = 'masuk';
+    $activeYearId = get_active_academic_year_id($conn);
+    $hasYearColumn = columnExists($conn, 'absensi', 'id_tahun_ajaran');
 
     // Check if already masuk today
-    $stmt = $conn->prepare('SELECT id_absen FROM absensi WHERE id_siswa = ? AND tanggal = ? AND status = ? LIMIT 1');
-    $stmt->bind_param('iss', $student['id_siswa'], $date, $status_masuk);
+    $sql = 'SELECT id_absen FROM absensi WHERE id_siswa = ? AND tanggal = ? AND status = ?';
+    if ($hasYearColumn && $activeYearId) {
+        $sql .= ' AND id_tahun_ajaran = ?';
+    }
+    $sql .= ' LIMIT 1';
+    $stmt = $conn->prepare($sql);
+    if ($hasYearColumn && $activeYearId) {
+        $stmt->bind_param('issi', $student['id_siswa'], $date, $status_masuk, $activeYearId);
+    } else {
+        $stmt->bind_param('iss', $student['id_siswa'], $date, $status_masuk);
+    }
     $stmt->execute();
     $result = $stmt->get_result();
     $stmt->close();
@@ -797,10 +829,21 @@ function processAttendancePulang(mysqli $conn, string $kode, string $tipe = 'rfi
     $date = date('Y-m-d');
     $time = date('H:i:s');
     $status_masuk = 'masuk';
+    $activeYearId = get_active_academic_year_id($conn);
+    $hasYearColumn = columnExists($conn, 'absensi', 'id_tahun_ajaran');
 
     // Check if sudah masuk today
-    $stmt = $conn->prepare('SELECT id_absen FROM absensi WHERE id_siswa = ? AND tanggal = ? AND status = ? LIMIT 1');
-    $stmt->bind_param('iss', $student['id_siswa'], $date, $status_masuk);
+    $sqlMasuk = 'SELECT id_absen FROM absensi WHERE id_siswa = ? AND tanggal = ? AND status = ?';
+    if ($hasYearColumn && $activeYearId) {
+        $sqlMasuk .= ' AND id_tahun_ajaran = ?';
+    }
+    $sqlMasuk .= ' LIMIT 1';
+    $stmt = $conn->prepare($sqlMasuk);
+    if ($hasYearColumn && $activeYearId) {
+        $stmt->bind_param('issi', $student['id_siswa'], $date, $status_masuk, $activeYearId);
+    } else {
+        $stmt->bind_param('iss', $student['id_siswa'], $date, $status_masuk);
+    }
     $stmt->execute();
     $result = $stmt->get_result();
     $stmt->close();
@@ -820,8 +863,17 @@ function processAttendancePulang(mysqli $conn, string $kode, string $tipe = 'rfi
 
     // Check if sudah pulang today
     $status_pulang = 'pulang';
-    $stmt = $conn->prepare('SELECT id_absen FROM absensi WHERE id_siswa = ? AND tanggal = ? AND status = ? LIMIT 1');
-    $stmt->bind_param('iss', $student['id_siswa'], $date, $status_pulang);
+    $sqlPulang = 'SELECT id_absen FROM absensi WHERE id_siswa = ? AND tanggal = ? AND status = ?';
+    if ($hasYearColumn && $activeYearId) {
+        $sqlPulang .= ' AND id_tahun_ajaran = ?';
+    }
+    $sqlPulang .= ' LIMIT 1';
+    $stmt = $conn->prepare($sqlPulang);
+    if ($hasYearColumn && $activeYearId) {
+        $stmt->bind_param('issi', $student['id_siswa'], $date, $status_pulang, $activeYearId);
+    } else {
+        $stmt->bind_param('iss', $student['id_siswa'], $date, $status_pulang);
+    }
     $stmt->execute();
     $result = $stmt->get_result();
     $stmt->close();

@@ -190,6 +190,19 @@ function ensure_student_identity_schema(mysqli $conn): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
     );
 
+    if (!schema_column_exists($conn, 'tahun_ajaran', 'semester')) {
+        run_schema_query($conn, "ALTER TABLE tahun_ajaran ADD COLUMN semester ENUM('ganjil','genap') NULL AFTER nama_tahun_ajaran");
+    }
+    if (!schema_column_exists($conn, 'tahun_ajaran', 'tanggal_mulai')) {
+        run_schema_query($conn, "ALTER TABLE tahun_ajaran ADD COLUMN tanggal_mulai DATE NULL AFTER semester");
+    }
+    if (!schema_column_exists($conn, 'tahun_ajaran', 'tanggal_selesai')) {
+        run_schema_query($conn, "ALTER TABLE tahun_ajaran ADD COLUMN tanggal_selesai DATE NULL AFTER tanggal_mulai");
+    }
+    if (!schema_column_exists($conn, 'tahun_ajaran', 'status')) {
+        run_schema_query($conn, "ALTER TABLE tahun_ajaran ADD COLUMN status ENUM('aktif','tidak') NOT NULL DEFAULT 'tidak' AFTER tanggal_selesai");
+    }
+
     run_schema_query(
         $conn,
         "CREATE TABLE IF NOT EXISTS siswa_kelas (
@@ -209,15 +222,24 @@ function ensure_student_identity_schema(mysqli $conn): void
     );
 
     $activeYearLabel = get_current_tahun_ajaran_label();
+    $currentMonth = (int) date('n');
+    $activeSemester = $currentMonth >= 7 ? 'ganjil' : 'genap';
+    [$yearStart, $yearEnd] = array_map('intval', explode('/', $activeYearLabel));
+    $semesterStart = $activeSemester === 'ganjil'
+        ? sprintf('%04d-07-01', $yearStart)
+        : sprintf('%04d-01-01', $yearEnd);
+    $semesterEnd = $activeSemester === 'ganjil'
+        ? sprintf('%04d-12-31', $yearStart)
+        : sprintf('%04d-06-30', $yearEnd);
     try {
-        $stmt = mysqli_prepare($conn, 'INSERT INTO tahun_ajaran (nama_tahun_ajaran, is_active) VALUES (?, 1) ON DUPLICATE KEY UPDATE nama_tahun_ajaran = VALUES(nama_tahun_ajaran)');
+        $stmt = mysqli_prepare($conn, "INSERT INTO tahun_ajaran (nama_tahun_ajaran, semester, tanggal_mulai, tanggal_selesai, is_active, status) VALUES (?, ?, ?, ?, 1, 'aktif') ON DUPLICATE KEY UPDATE nama_tahun_ajaran = VALUES(nama_tahun_ajaran), semester = VALUES(semester), tanggal_mulai = VALUES(tanggal_mulai), tanggal_selesai = VALUES(tanggal_selesai)");
     } catch (Throwable $e) {
         app_log_error('Active year prepare failed', ['error' => $e->getMessage()]);
         $stmt = false;
     }
     if ($stmt) {
         try {
-            mysqli_stmt_bind_param($stmt, 's', $activeYearLabel);
+            mysqli_stmt_bind_param($stmt, 'ssss', $activeYearLabel, $activeSemester, $semesterStart, $semesterEnd);
             mysqli_stmt_execute($stmt);
         } catch (Throwable $e) {
             app_log_error('Active year execute failed', ['error' => $e->getMessage()]);
@@ -226,6 +248,17 @@ function ensure_student_identity_schema(mysqli $conn): void
     }
 
     run_schema_query($conn, "UPDATE tahun_ajaran SET is_active = CASE WHEN nama_tahun_ajaran = '" . mysqli_real_escape_string($conn, $activeYearLabel) . "' THEN 1 ELSE 0 END");
+    run_schema_query($conn, "UPDATE tahun_ajaran SET status = CASE WHEN is_active = 1 THEN 'aktif' ELSE 'tidak' END");
+
+    if (!schema_column_exists($conn, 'absensi', 'id_tahun_ajaran')) {
+        run_schema_query($conn, "ALTER TABLE absensi ADD COLUMN id_tahun_ajaran INT NULL AFTER id_siswa");
+    }
+    if (!schema_index_exists($conn, 'absensi', 'idx_absensi_tahun')) {
+        run_schema_query($conn, "ALTER TABLE absensi ADD INDEX idx_absensi_tahun (id_tahun_ajaran)");
+    }
+    if (!schema_index_exists($conn, 'absensi', 'idx_absensi_siswa_tanggal_tahun')) {
+        run_schema_query($conn, "ALTER TABLE absensi ADD INDEX idx_absensi_siswa_tanggal_tahun (id_siswa, tanggal, id_tahun_ajaran)");
+    }
 
     try {
         $activeYearResult = mysqli_query($conn, "SELECT id_tahun_ajaran FROM tahun_ajaran WHERE is_active = 1 LIMIT 1");
@@ -240,6 +273,11 @@ function ensure_student_identity_schema(mysqli $conn): void
 
     if ($activeYear) {
         $activeYearId = (int) $activeYear['id_tahun_ajaran'];
+
+        if (schema_column_exists($conn, 'absensi', 'id_tahun_ajaran')) {
+            run_schema_query($conn, 'UPDATE absensi SET id_tahun_ajaran = ' . $activeYearId . ' WHERE id_tahun_ajaran IS NULL');
+        }
+
         $sql = "
             INSERT INTO siswa_kelas (id_siswa, id_kelas, id_tahun_ajaran, status)
             SELECT
@@ -273,6 +311,38 @@ function ensure_student_identity_schema(mysqli $conn): void
             mysqli_stmt_close($stmt);
         }
     }
+}
+
+function get_active_academic_year(mysqli $conn): ?array
+{
+    try {
+        $sql = "SELECT id_tahun_ajaran, nama_tahun_ajaran, semester, tanggal_mulai, tanggal_selesai
+                FROM tahun_ajaran
+                WHERE is_active = 1 OR status = 'aktif'
+                ORDER BY is_active DESC, id_tahun_ajaran DESC
+                LIMIT 1";
+        $result = mysqli_query($conn, $sql);
+    } catch (Throwable $e) {
+        app_log_error('Failed to query active academic year', ['error' => $e->getMessage()]);
+        return null;
+    }
+
+    if (!$result || mysqli_num_rows($result) === 0) {
+        return null;
+    }
+
+    $row = mysqli_fetch_assoc($result);
+    return $row ?: null;
+}
+
+function get_active_academic_year_id(mysqli $conn): ?int
+{
+    $active = get_active_academic_year($conn);
+    if (!$active || empty($active['id_tahun_ajaran'])) {
+        return null;
+    }
+
+    return (int) $active['id_tahun_ajaran'];
 }
 
 function get_student_card_identifier(array $student): string

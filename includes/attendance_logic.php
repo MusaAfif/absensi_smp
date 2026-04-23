@@ -103,8 +103,25 @@ class AttendanceLogic {
 
         // Cek apakah sudah absen hari ini
         $tanggal = date('Y-m-d');
-        $stmt = mysqli_prepare($this->conn, "SELECT id_absen FROM absensi WHERE id_siswa = ? AND tanggal = ? LIMIT 1");
-        mysqli_stmt_bind_param($stmt, 'is', $idSiswa, $tanggal);
+        $activeYearId = function_exists('get_active_academic_year_id')
+            ? get_active_academic_year_id($this->conn)
+            : null;
+        $hasYearColumn = function_exists('columnExists')
+            ? columnExists($this->conn, 'absensi', 'id_tahun_ajaran')
+            : false;
+
+        $checkSql = "SELECT id_absen FROM absensi WHERE id_siswa = ? AND tanggal = ?";
+        if ($hasYearColumn && $activeYearId) {
+            $checkSql .= " AND id_tahun_ajaran = ?";
+        }
+        $checkSql .= " LIMIT 1";
+
+        $stmt = mysqli_prepare($this->conn, $checkSql);
+        if ($hasYearColumn && $activeYearId) {
+            mysqli_stmt_bind_param($stmt, 'isi', $idSiswa, $tanggal, $activeYearId);
+        } else {
+            mysqli_stmt_bind_param($stmt, 'is', $idSiswa, $tanggal);
+        }
         mysqli_stmt_execute($stmt);
         $result = mysqli_stmt_get_result($stmt);
         $existing = mysqli_fetch_assoc($result);
@@ -121,19 +138,31 @@ class AttendanceLogic {
         }
 
         // Simpan absensi baru
-        $stmt = mysqli_prepare($this->conn,
-            "INSERT INTO absensi (id_siswa, status_presensi, keterlambatan_menit, waktu_absen, tanggal, jam, waktu, scan_source, status, id_status)
-             VALUES (?, ?, ?, NOW(), ?, ?, ?, 'qr', 'Hadir', 1)"
-        );
-
-        mysqli_stmt_bind_param($stmt, 'isisss',
+        $columns = ['id_siswa', 'status_presensi', 'keterlambatan_menit', 'waktu_absen', 'tanggal', 'jam', 'waktu', 'scan_source', 'status', 'id_status'];
+        $placeholders = ['?', '?', '?', 'NOW()', '?', '?', '?', '?', '?', '?'];
+        $types = 'isisssssi';
+        $params = [
             $idSiswa,
             $statusResult['status'],
             $statusResult['keterlambatan_menit'],
             $tanggal,
             $scanTime,
-            $scanTime
-        );
+            $scanTime,
+            'qr',
+            'Hadir',
+            1,
+        ];
+
+        if ($hasYearColumn && $activeYearId) {
+            $columns[] = 'id_tahun_ajaran';
+            $placeholders[] = '?';
+            $types .= 'i';
+            $params[] = $activeYearId;
+        }
+
+        $insertSql = 'INSERT INTO absensi (' . implode(', ', $columns) . ') VALUES (' . implode(', ', $placeholders) . ')';
+        $stmt = mysqli_prepare($this->conn, $insertSql);
+        mysqli_stmt_bind_param($stmt, $types, ...$params);
 
         if (mysqli_stmt_execute($stmt)) {
             mysqli_stmt_close($stmt);
