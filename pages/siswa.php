@@ -216,6 +216,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
             <p class="text-muted mb-0">Manajemen data akademik </p>
         </div>
         <div class="d-flex gap-2">
+            <a href="rfid_registrasi.php" class="btn btn-outline-dark fw-bold">REGISTRASI RFID</a>
             <a href="cetak_massal.php" class="btn btn-dark fw-bold">CETAK MASSAL</a>
             <a href="naik_kelas_massal.php" class="btn btn-outline-success fw-bold">NAIK KELAS MASSAL</a>
             <a href="import_siswa.php" class="btn btn-outline-primary fw-bold">IMPORT DATA</a> 

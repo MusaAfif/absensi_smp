@@ -146,9 +146,16 @@ function ensure_student_identity_schema(mysqli $conn): void
     if (!schema_column_exists($conn, 'siswa', 'status_siswa')) {
         run_schema_query($conn, "ALTER TABLE siswa ADD COLUMN status_siswa ENUM('aktif','lulus','pindah','nonaktif','hapus') NOT NULL DEFAULT 'aktif' AFTER id_kelas");
     }
+    if (!schema_column_exists($conn, 'siswa', 'rfid_uid')) {
+        run_schema_query($conn, "ALTER TABLE siswa ADD COLUMN rfid_uid VARCHAR(64) NULL AFTER student_uuid");
+    }
     if (!schema_index_exists($conn, 'siswa', 'uk_siswa_student_uuid')) {
         run_schema_query($conn, "ALTER TABLE siswa ADD UNIQUE KEY uk_siswa_student_uuid (student_uuid)");
     }
+    if (!schema_index_exists($conn, 'siswa', 'uk_siswa_rfid_uid')) {
+        run_schema_query($conn, "ALTER TABLE siswa ADD UNIQUE KEY uk_siswa_rfid_uid (rfid_uid)");
+    }
+    run_schema_query($conn, "UPDATE siswa SET rfid_uid = NULL WHERE rfid_uid = ''");
     run_schema_query($conn, "UPDATE siswa SET status_siswa = 'aktif' WHERE status_siswa IS NULL OR status_siswa = ''");
 
     try {
@@ -663,6 +670,7 @@ function safe_redirect($page = '', $params = []) {
         'scan_masuk' => 'pages/scan_masuk.php',
         'scan_pulang' => 'pages/scan_pulang.php',
         'scan_proses' => 'pages/scan_proses.php',
+        'rfid_registrasi' => 'pages/rfid_registrasi.php',
         'profile' => 'pages/profile.php',
         'import_siswa' => 'pages/import_siswa.php',
         'import_proses' => 'pages/import_proses.php',
