@@ -221,6 +221,8 @@ function ensure_student_identity_schema(mysqli $conn): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci"
     );
 
+    // Bootstrap aman: hanya seed awal jika tabel tahun_ajaran benar-benar kosong.
+    // Aktivasi semester setelah itu wajib manual oleh admin (tanpa override otomatis saat runtime).
     $activeYearLabel = get_current_tahun_ajaran_label();
     $currentMonth = (int) date('n');
     $activeSemester = $currentMonth >= 7 ? 'ganjil' : 'genap';
@@ -231,24 +233,50 @@ function ensure_student_identity_schema(mysqli $conn): void
     $semesterEnd = $activeSemester === 'ganjil'
         ? sprintf('%04d-12-31', $yearStart)
         : sprintf('%04d-06-30', $yearEnd);
-    try {
-        $stmt = mysqli_prepare($conn, "INSERT INTO tahun_ajaran (nama_tahun_ajaran, semester, tanggal_mulai, tanggal_selesai, is_active, status) VALUES (?, ?, ?, ?, 1, 'aktif') ON DUPLICATE KEY UPDATE nama_tahun_ajaran = VALUES(nama_tahun_ajaran), semester = VALUES(semester), tanggal_mulai = VALUES(tanggal_mulai), tanggal_selesai = VALUES(tanggal_selesai)");
-    } catch (Throwable $e) {
-        app_log_error('Active year prepare failed', ['error' => $e->getMessage()]);
-        $stmt = false;
-    }
-    if ($stmt) {
-        try {
-            mysqli_stmt_bind_param($stmt, 'ssss', $activeYearLabel, $activeSemester, $semesterStart, $semesterEnd);
-            mysqli_stmt_execute($stmt);
-        } catch (Throwable $e) {
-            app_log_error('Active year execute failed', ['error' => $e->getMessage()]);
-        }
-        mysqli_stmt_close($stmt);
+
+    $activeCountResult = mysqli_query($conn, "SELECT COUNT(*) AS total FROM tahun_ajaran WHERE is_active = 1 OR status = 'aktif'");
+    $activeCount = 0;
+    if ($activeCountResult) {
+        $activeCountRow = mysqli_fetch_assoc($activeCountResult);
+        $activeCount = (int) ($activeCountRow['total'] ?? 0);
+        mysqli_free_result($activeCountResult);
     }
 
-    run_schema_query($conn, "UPDATE tahun_ajaran SET is_active = CASE WHEN nama_tahun_ajaran = '" . mysqli_real_escape_string($conn, $activeYearLabel) . "' THEN 1 ELSE 0 END");
-    run_schema_query($conn, "UPDATE tahun_ajaran SET status = CASE WHEN is_active = 1 THEN 'aktif' ELSE 'tidak' END");
+    $totalYearResult = mysqli_query($conn, 'SELECT COUNT(*) AS total FROM tahun_ajaran');
+    $totalYearCount = 0;
+    if ($totalYearResult) {
+        $totalYearRow = mysqli_fetch_assoc($totalYearResult);
+        $totalYearCount = (int) ($totalYearRow['total'] ?? 0);
+        mysqli_free_result($totalYearResult);
+    }
+
+    if ($totalYearCount === 0) {
+        try {
+            $stmt = mysqli_prepare($conn, "INSERT INTO tahun_ajaran (nama_tahun_ajaran, semester, tanggal_mulai, tanggal_selesai, is_active, status) VALUES (?, ?, ?, ?, 1, 'aktif')");
+        } catch (Throwable $e) {
+            app_log_error('Initial academic year prepare failed', ['error' => $e->getMessage()]);
+            $stmt = false;
+        }
+        if ($stmt) {
+            try {
+                mysqli_stmt_bind_param($stmt, 'ssss', $activeYearLabel, $activeSemester, $semesterStart, $semesterEnd);
+                mysqli_stmt_execute($stmt);
+            } catch (Throwable $e) {
+                app_log_error('Initial academic year execute failed', ['error' => $e->getMessage()]);
+            }
+            mysqli_stmt_close($stmt);
+            $activeCount = 1;
+        }
+    }
+
+    if ($activeCount > 1) {
+        // Self-healing untuk data lama yang memiliki lebih dari satu semester aktif.
+        run_schema_query($conn, "UPDATE tahun_ajaran SET is_active = 0, status = 'tidak'");
+        run_schema_query($conn, "UPDATE tahun_ajaran SET is_active = 1, status = 'aktif' ORDER BY id_tahun_ajaran DESC LIMIT 1");
+    }
+
+    // Sinkronisasi ringan agar is_active dan status tidak saling bertentangan.
+    run_schema_query($conn, "UPDATE tahun_ajaran SET status = CASE WHEN is_active = 1 THEN 'aktif' ELSE 'tidak' END WHERE status NOT IN ('aktif','tidak') OR (is_active = 1 AND status <> 'aktif') OR (is_active = 0 AND status <> 'tidak')");
 
     if (!schema_column_exists($conn, 'absensi', 'id_tahun_ajaran')) {
         run_schema_query($conn, "ALTER TABLE absensi ADD COLUMN id_tahun_ajaran INT NULL AFTER id_siswa");
@@ -318,8 +346,8 @@ function get_active_academic_year(mysqli $conn): ?array
     try {
         $sql = "SELECT id_tahun_ajaran, nama_tahun_ajaran, semester, tanggal_mulai, tanggal_selesai
                 FROM tahun_ajaran
-                WHERE is_active = 1 OR status = 'aktif'
-                ORDER BY is_active DESC, id_tahun_ajaran DESC
+                WHERE is_active = 1 AND status = 'aktif'
+                ORDER BY id_tahun_ajaran DESC
                 LIMIT 1";
         $result = mysqli_query($conn, $sql);
     } catch (Throwable $e) {
@@ -327,11 +355,25 @@ function get_active_academic_year(mysqli $conn): ?array
         return null;
     }
 
-    if (!$result || mysqli_num_rows($result) === 0) {
+    if ($result && mysqli_num_rows($result) > 0) {
+        $row = mysqli_fetch_assoc($result);
+        return $row ?: null;
+    }
+
+    // Fallback kompatibilitas data lama: jika status belum sinkron, tetap utamakan is_active.
+    $fallbackResult = mysqli_query(
+        $conn,
+        "SELECT id_tahun_ajaran, nama_tahun_ajaran, semester, tanggal_mulai, tanggal_selesai
+         FROM tahun_ajaran
+         WHERE is_active = 1
+         ORDER BY id_tahun_ajaran DESC
+         LIMIT 1"
+    );
+    if (!$fallbackResult || mysqli_num_rows($fallbackResult) === 0) {
         return null;
     }
 
-    $row = mysqli_fetch_assoc($result);
+    $row = mysqli_fetch_assoc($fallbackResult);
     return $row ?: null;
 }
 

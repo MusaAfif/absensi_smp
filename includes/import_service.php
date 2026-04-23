@@ -43,15 +43,12 @@ class StudentImportService
 
         if ($this->hasRelationalSchema) {
             $this->activeTahunAjaran = $this->getActiveTahunAjaran();
-            if (!$this->activeTahunAjaran) {
-                $this->activeTahunAjaran = $this->ensureActiveTahunAjaran();
-            }
         }
     }
 
     private function getActiveTahunAjaran(): ?array
     {
-        $stmt = $this->conn->prepare("SELECT id_tahun_ajaran, nama_tahun_ajaran FROM tahun_ajaran WHERE is_active = 1 LIMIT 1");
+        $stmt = $this->conn->prepare("SELECT id_tahun_ajaran, nama_tahun_ajaran FROM tahun_ajaran WHERE is_active = 1 AND status = 'aktif' ORDER BY id_tahun_ajaran DESC LIMIT 1");
         if (!$stmt) return null;
         
         $stmt->execute();
@@ -59,23 +56,6 @@ class StudentImportService
         $data = ($result && $result->num_rows > 0) ? $result->fetch_assoc() : null;
         $stmt->close();
         return $data;
-    }
-
-    private function ensureActiveTahunAjaran(): ?array
-    {
-        $month = intval(date('m'));
-        $year = intval(date('Y'));
-        $tahunName = ($month >= 7) ? sprintf('%d/%d', $year, $year + 1) : sprintf('%d/%d', $year - 1, $year);
-
-        $stmt = $this->conn->prepare("INSERT IGNORE INTO tahun_ajaran (nama_tahun_ajaran, is_active) VALUES (?, 1)");
-        if (!$stmt) return null;
-
-        $stmt->bind_param('s', $tahunName);
-        $stmt->execute();
-        $id = $this->conn->insert_id;
-        $stmt->close();
-
-        return $id ? ['id_tahun_ajaran' => $id, 'nama_tahun_ajaran' => $tahunName] : null;
     }
 
     public function loadClassMap(): bool
@@ -143,6 +123,11 @@ class StudentImportService
 
     public function processFile(string $filePath): bool
     {
+        if ($this->hasRelationalSchema && !$this->activeTahunAjaran) {
+            $this->logError('Tidak ada semester aktif. Aktifkan semester terlebih dahulu sebelum import.');
+            return false;
+        }
+
         if (!$this->loadClassMap()) {
             $this->logError("Gagal memuat mapping kelas");
             return false;
@@ -288,13 +273,13 @@ class StudentImportService
 
     private function findOrCreateStudent(string $nis, string $nisn, string $nama, string $jk, int $idKelas, int $lineNumber): ?int
     {
-        $stmt = $this->conn->prepare("SELECT id_siswa FROM siswa WHERE nis = ? LIMIT 1");
+        $stmt = $this->conn->prepare("SELECT id_siswa FROM siswa WHERE nisn = ? LIMIT 1");
         if (!$stmt) {
             $this->logError("Row $lineNumber: Database error");
             return null;
         }
 
-        $stmt->bind_param('s', $nis);
+        $stmt->bind_param('s', $nisn);
         $stmt->execute();
         $result = $stmt->get_result();
         $studentId = null;

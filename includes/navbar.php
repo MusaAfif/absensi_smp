@@ -64,6 +64,7 @@ $navItems = [
 
 // Fitur super_admin only
 if (($_SESSION['role'] ?? '') === 'super_admin') {
+    $navItems[APP_BASE_URL . '/pages/semester.php'] = ['label' => 'Semester Aktif', 'icon' => 'fas fa-calendar-check'];
     $navItems[APP_BASE_URL . '/admin/user.php'] = ['label' => 'User Management', 'icon' => 'fas fa-user-shield'];
     $navItems[APP_BASE_URL . '/pages/backup.php'] = ['label' => 'Backup & Restore', 'icon' => 'fas fa-database'];
 }

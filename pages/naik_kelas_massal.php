@@ -203,24 +203,7 @@ function parse_uploaded_class_file(array $file): array
 
 function get_active_tahun_ajaran_id(mysqli $conn): ?int
 {
-    $result = mysqli_query($conn, "SELECT id_tahun_ajaran FROM tahun_ajaran WHERE is_active = 1 LIMIT 1");
-    if ($result && mysqli_num_rows($result) > 0) {
-        $row = mysqli_fetch_assoc($result);
-        return (int)$row['id_tahun_ajaran'];
-    }
-
-    $label = get_current_tahun_ajaran_label();
-    $stmt = mysqli_prepare($conn, 'INSERT INTO tahun_ajaran (nama_tahun_ajaran, is_active) VALUES (?, 1) ON DUPLICATE KEY UPDATE nama_tahun_ajaran = VALUES(nama_tahun_ajaran)');
-    if (!$stmt) {
-        return null;
-    }
-    mysqli_stmt_bind_param($stmt, 's', $label);
-    mysqli_stmt_execute($stmt);
-    mysqli_stmt_close($stmt);
-
-    mysqli_query($conn, "UPDATE tahun_ajaran SET is_active = CASE WHEN nama_tahun_ajaran = '" . mysqli_real_escape_string($conn, $label) . "' THEN 1 ELSE 0 END");
-
-    $result = mysqli_query($conn, "SELECT id_tahun_ajaran FROM tahun_ajaran WHERE is_active = 1 LIMIT 1");
+    $result = mysqli_query($conn, "SELECT id_tahun_ajaran FROM tahun_ajaran WHERE is_active = 1 AND status = 'aktif' ORDER BY id_tahun_ajaran DESC LIMIT 1");
     if ($result && mysqli_num_rows($result) > 0) {
         $row = mysqli_fetch_assoc($result);
         return (int)$row['id_tahun_ajaran'];
@@ -367,6 +350,12 @@ function apply_mass_update(mysqli $conn, array $preview): array
     $appliedInsert = 0;
 
     $activeYearId = get_active_tahun_ajaran_id($conn);
+    if (!$activeYearId) {
+        return [
+            'success' => false,
+            'message' => 'Tidak ada semester aktif. Silakan aktifkan semester terlebih dahulu.',
+        ];
+    }
 
     mysqli_begin_transaction($conn);
     try {
